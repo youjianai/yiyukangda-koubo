@@ -54,11 +54,37 @@ def _keep(title: str, url: str, snip: str) -> bool:
     return bool(title or snip) and len(snip) > 15
 
 
+# 查询里的修饰词；从查询中剔除后剩下的是主体核心词
+STOPWORDS = frozenset({
+    "功效", "作用", "主治", "禁忌", "用法", "用量", "人群", "注意", "事项",
+    "中药", "药材", "采收", "采摘", "炮制", "储存", "季节", "产地", "定位",
+    "操作", "治疗", "鉴别", "诊断", "泡脚", "煮水", "用", "的", "与", "和",
+})
+
+
+def core_terms(query: str):
+    """从空格分隔的查询里取主体核心词（剔除修饰停用词）；全是停用词则退回全部。"""
+    toks = [t for t in re.split(r"\s+", query.strip()) if t]
+    cores = [t for t in toks if t not in STOPWORDS and len(t) >= 2]
+    return cores or toks
+
+
+def _relevant(title: str, snip: str, cores) -> bool:
+    """标题+摘要至少命中一个核心词才算相关；一个都不含=语义离题，丢弃。"""
+    if not cores:
+        return True
+    blob = title + " " + snip
+    return any(c in blob for c in cores)
+
+
 def search_sogou(query: str, top: int = 6):
     r = requests.get("https://www.sogou.com/web", params={"query": query},
                      headers=HEADERS, timeout=20)
     r.encoding = "utf-8"
+    if "antispider" in r.text or ("验证码" in r.text and len(r.text) < 20000):
+        raise RuntimeError("搜狗触发反爬验证码页，本次跳过、转 bing 兜底")
     out = []
+    cores = core_terms(query)
     blocks = re.split(r'(?i)<div class="(?:vrwrap|rb|result)"', r.text)[1:]
     for b in blocks:
         m = re.search(r"(?is)<h3[^>]*>.*?<a[^>]*href=\"([^\"]*)\"[^>]*>(.*?)</a>", b) \
@@ -68,7 +94,7 @@ def search_sogou(query: str, top: int = 6):
         url = m.group(1) if m else ""
         title = strip_tags(m.group(2)) if m else ""
         snip = strip_tags(a.group(1)) if a else ""
-        if _keep(title, url, snip):
+        if _keep(title, url, snip) and _relevant(title, snip, cores):
             out.append({"title": title, "url": url, "snippet": snip[:380]})
         if len(out) >= top:
             break
@@ -81,13 +107,14 @@ def search_bing(query: str, top: int = 6):
                      headers=HEADERS, timeout=20)
     r.encoding = "utf-8"
     out = []
+    cores = core_terms(query)
     for b in re.findall(r'(?is)<li class="b_algo".*?</li>', r.text):
         m = re.search(r'(?is)<h2[^>]*>.*?<a[^>]*href="([^"]+)"[^>]*>(.*?)</a>', b)
         cap = re.search(r"(?is)<p[^>]*>(.*?)</p>", b)
         url = m.group(1) if m else ""
         title = strip_tags(m.group(2)) if m else ""
         snip = strip_tags(cap.group(1)) if cap else ""
-        if _keep(title, url, snip):
+        if _keep(title, url, snip) and _relevant(title, snip, cores):
             out.append({"title": title, "url": url, "snippet": snip[:380]})
         if len(out) >= top:
             break
@@ -102,7 +129,7 @@ def lookup(query: str):
         notes.append(f"sogou HTTP {sc} → {len(items)} 条")
     except Exception as e:
         items = []
-        notes.append(f"sogou ERR {type(e).__name__}")
+        notes.append(f"sogou跳过: {e}")
     if len(items) < 2:
         try:
             bc, bitems = search_bing(query)

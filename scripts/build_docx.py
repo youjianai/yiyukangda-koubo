@@ -155,7 +155,8 @@ def render_item(doc, item):
         rendered_back = True
         add_heading(doc, label)
         for e in entries:
-            add_body(doc, e["text"].strip())
+            for line in split_script(e["text"]):
+                add_body(doc, line)
             if e.get("source"):
                 add_source(doc, e["source"].strip())
 
