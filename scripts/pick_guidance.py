@@ -5,8 +5,8 @@
     python scripts/pick_guidance.py [--mode short|long|any]
 
 模式：
-    short  只从短引导语（≤70字）中随机选，适合原文较长需压缩整体的场景
-    long   只从长引导语（≥100字）中随机选，适合原文较短需充实整体的场景
+    short  只从短引导语（≤75字）中随机选，适合原文较长需压缩整体的场景
+    long   只从长引导语（≥95字）中随机选，适合原文较短需充实整体的场景
     any    从全部引导语中随机选（默认）
 
 库文件：本脚本上级目录下的 references/guidance_library.json
@@ -21,8 +21,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 LIB = os.path.join(HERE, "..", "references", "guidance_library.json")
 
-SHORT_MAX = 70    # ≤70 字为短引导语
-LONG_MIN = 100    # ≥100 字为长引导语
+SHORT_MAX = 75    # ≤75 字为短引导语
+LONG_MIN = 95     # ≥95 字为长引导语
 
 
 def load_items(path):
