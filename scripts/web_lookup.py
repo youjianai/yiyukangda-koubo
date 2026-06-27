@@ -121,8 +121,29 @@ def search_bing(query: str, top: int = 6):
     return r.status_code, out
 
 
+def search_via_api(query: str, top: int = 6):
+    """【预留接口·暂未实现】将来接专用搜索 API（博查 Bocha / Tavily / Serper 等），
+    返回 [{title, url, snippet}]；现阶段返回 None 表示「未启用，回退搜狗/bing」。
+
+    接入步骤（之后再做）：设环境变量 SEARCH_API=bocha|tavily、SEARCH_API_KEY=<key>，
+    在下方按所选服务实现一次 HTTP 调用并映射成 {title,url,snippet}，lookup 会自动优先用它。
+    背景：本机 Claude Code 上游是 DeepSeek（不认 Anthropic 服务端 WebSearch），故内置联网不可用。
+    """
+    import os
+    provider = os.environ.get("SEARCH_API")
+    key = os.environ.get("SEARCH_API_KEY")
+    if not provider or not key:
+        return None  # 未配置 → 不启用，回退搜狗/bing
+    print(f"[警告] 已配 SEARCH_API='{provider}' 但 search_via_api 尚未实现，"
+          f"本次回退搜狗/bing；请在该函数内补 HTTP 调用并映射结果。", file=sys.stderr)
+    return None
+
+
 def lookup(query: str):
-    """搜狗为主，结果不足 2 条时用 bing 补充。"""
+    """搜索 API（若已接入）优先；否则搜狗为主、不足 2 条用 bing 补充。"""
+    api_items = search_via_api(query)
+    if api_items:
+        return ["search-api"], api_items[:6]
     notes = []
     try:
         sc, items = search_sogou(query)
