@@ -11,10 +11,9 @@ input.json 结构（UTF-8）：
       "link": "https://...",
       "title": "白开水里煮两物，帮你养养肝",
       "script": "首句口语自然即可、不必逐字等于标题\n第二段\n第三段",   // 字符串按换行分段，或直接给段落数组
-      "notes":      [ {"text": "脂肪肝鉴别诊断：...", "source": "默沙东诊疗手册中文版（链接）"} ],
-      "tips":       [ {"text": "适用人群：...\n禁忌人群：...", "source": "《方剂学》（链接）"} ],
-      "processing": [ {"text": "荷叶的采摘与炮制：...", "source": "《中国药典》（链接）"} ],
-      "review_note": "以上为通用知识，请执业医师复核"        // 可省略；附在该条后三段整体末尾的兜底标注
+      "notes":      [ {"text": "脂肪肝鉴别诊断：...", "source": "..."} ],
+      "tips":       [ {"text": "适用人群：...\n禁忌人群：...", "source": "..."} ],
+      "processing": [ {"text": "荷叶的采摘与炮制：...", "source": "..."} ],
     }
   ]
 }
@@ -22,12 +21,13 @@ input.json 结构（UTF-8）：
 排版规则（固定，不随每次任务改动）：
 - 多篇（items 多于 1 条）时每篇开头加「第N条」加粗序号；单篇不加
 - 条与条之间用浅灰细横线分隔（不强制分页，避免页底大片空白）
-- 板块用加粗小标题：视频链接 / 标题 / 口播脚本文案 / 备注 / 温馨提示 / 采摘与炮制
-- 来源写进 备注 / 温馨提示 / 采摘与炮制 三段；口播正文不附来源
-- review_note 附在该条后三段整体末尾一次（灰字小括号），不是每段各标
-- 某段无内容则整段跳过（不输出空标题）
+- 视频链接 / 标题：粗体标签与内容同行（「视频链接：URL」「标题：内容」）
+- 口播脚本文案：无小标题，直接放正文
+- 备注 / 温馨提示 / 采摘与炮制：不加粗小标题，内容用【】包裹
+- 温馨提示自动按「禁忌人群」拆分为独立【】块（适用人群一块、禁忌人群+注意一块）
+- 某段无内容则整段跳过（不输出空【】）
 - 不对正文做标点改写，输入什么排什么（标点合规在洗稿环节把控）
-- 正文宋体五号（10.5pt），小标题加粗五号，来源/复核标注宋体 9pt 灰字
+- 正文宋体五号（10.5pt），标题加粗五号
 """
 
 import json
@@ -57,14 +57,20 @@ def set_cjk_font(run, name=BODY_FONT):
     rpr.rFonts.set(qn("w:eastAsia"), name)
 
 
-def add_heading(doc, text):
+def add_inline_label(doc, label, content, bold_content=False):
+    """粗体标签 + 正文内容在同段（用于视频链接、标题）。"""
     p = doc.add_paragraph()
-    p.paragraph_format.space_before = Pt(10)
+    p.paragraph_format.space_before = Pt(2)
     p.paragraph_format.space_after = Pt(2)
-    run = p.add_run(text)
-    run.bold = True
-    run.font.size = Pt(HEADING_SIZE)
-    set_cjk_font(run)
+    run_label = p.add_run(label)
+    run_label.bold = True
+    run_label.font.size = Pt(HEADING_SIZE)
+    set_cjk_font(run_label)
+    run_content = p.add_run(content)
+    run_content.font.size = Pt(BODY_SIZE)
+    if bold_content:
+        run_content.bold = True
+    set_cjk_font(run_content)
     return p
 
 
@@ -137,37 +143,49 @@ def normalize_entries(value):
 
 
 def render_item(doc, item):
-    add_heading(doc, "视频链接")
-    add_body(doc, item.get("link", "").strip())
+    # 视频链接：粗体标签 + URL 同行
+    link = item.get("link", "").strip()
+    if link:
+        add_inline_label(doc, "视频链接：", link)
 
-    add_heading(doc, "标题")
-    add_body(doc, item.get("title", "").strip())
+    # 标题：粗体标签 + 粗体内容同行
+    title = item.get("title", "").strip()
+    if title:
+        add_inline_label(doc, "标题：", title, bold_content=True)
 
-    add_heading(doc, "口播脚本文案")
+    # 口播脚本文案：去掉标题，直接放正文
     for para in split_script(item.get("script", "")):
         add_body(doc, para)
 
-    rendered_back = False
-    for key, label in SECTION_ORDER:
+    # 后三段：不加粗小标题，内容用【】包裹
+    for key, _label in SECTION_ORDER:
         entries = normalize_entries(item.get(key))
         if not entries:
             continue
-        rendered_back = True
-        add_heading(doc, label)
-        for e in entries:
-            for line in split_script(e["text"]):
-                add_body(doc, line)
-            if e.get("source"):
-                add_source(doc, e["source"].strip())
+        # 将所有 text 合并，source 已不加（联网暂停阶段）
+        combined = "\n".join(e["text"] for e in entries if e["text"].strip())
+        if not combined.strip():
+            continue
 
-    review = (item.get("review_note") or "").strip()
-    if review and rendered_back:
-        p = doc.add_paragraph()
-        p.paragraph_format.space_before = Pt(6)
-        run = p.add_run("（" + review.strip("（）()") + "）")
-        run.font.size = Pt(SOURCE_SIZE)
-        run.font.color.rgb = SOURCE_COLOR
-        set_cjk_font(run)
+        if key == "tips":
+            # 温馨提示按「禁忌人群」「注意」拆分为独立【】块
+            parts = []
+            remaining = combined
+            for marker in ("禁忌人群", "注意"):
+                if marker in remaining:
+                    idx = remaining.index(marker)
+                    if idx > 0:
+                        parts.append(remaining[:idx].strip())
+                    remaining = remaining[idx:].strip()
+            if remaining:
+                parts.append(remaining)
+            if not parts:  # 无拆分标记，整体一块
+                parts = [combined]
+            for part in parts:
+                if part:
+                    add_body(doc, "【{}】".format(part))
+        else:
+            add_body(doc, "【{}】".format(combined))
 
 
 def build(data, output_dir):
