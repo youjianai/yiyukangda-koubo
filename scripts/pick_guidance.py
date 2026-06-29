@@ -42,9 +42,17 @@ def _norm(text):
 
 
 def load_items(path):
-    """加载库并按归一化文本去重（方案E）：标点/空白差异、重复追加的同一条只留首次出现。"""
-    with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    """加载库并按归一化文本去重（方案E）：标点/空白差异、重复追加的同一条只留首次出现。
+    若 JSON 损坏，给出明确报错并退出，不静默返回空列表。"""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except json.JSONDecodeError as e:
+        sys.stderr.write("引导语库 JSON 已损坏，请检查修复后重试：%s\n" % e)
+        sys.exit(3)
+    if not isinstance(data, list):
+        sys.stderr.write("引导语库 JSON 格式错误：顶层必须是数组。\n")
+        sys.exit(3)
     items, seen = [], set()
     for it in data:
         if isinstance(it, str):
