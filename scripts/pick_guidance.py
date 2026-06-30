@@ -104,13 +104,19 @@ def main():
         default="any",
         help="short=≤75字优先 / long=≥95字优先 / any=全部（默认）",
     )
+    parser.add_argument(
+        "--lib-path",
+        default=None,
+        help="引导语库 JSON 文件的路径（默认 ../references/guidance_library.json）",
+    )
     args = parser.parse_args()
 
-    if not os.path.exists(LIB):
-        sys.stderr.write("引导语库不存在：%s\n" % LIB)
+    lib_path = args.lib_path if args.lib_path else LIB
+    if not os.path.exists(lib_path):
+        sys.stderr.write("引导语库不存在：%s\n" % lib_path)
         sys.exit(1)
 
-    all_items = load_items(LIB)
+    all_items = load_items(lib_path)
     if not all_items:
         sys.stderr.write("引导语库为空，请先往 references/guidance_library.json 导入引导语。\n")
         sys.exit(2)
