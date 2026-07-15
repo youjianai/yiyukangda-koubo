@@ -1,0 +1,30 @@
+{
+  "id": "01-foot-soak",
+  "source": {
+    "link": "",
+    "title": "腰腿疼痛反复发作？别急着吃止痛药",
+    "text": "腰腿疼痛反复发作？别急着吃止痛药，这个老一辈传下来的泡脚方，成本不到两块钱，好多人挤破脑袋都想学。\n\n今天我就毫无保留地分享给你，我们只用几样厨房里的东西就能做。\n\n很多人一到阴雨天或者换季的时候，腰腿就开始酸痛，酸得像断了一样，走路都费劲。这在中医里属于寒湿入骨，风寒湿邪侵袭经络，气血不通，不通则痛。\n\n取桃树叶一大把、生姜五片、大蒜三瓣、花椒一小撮，先把桃树叶和生姜一起放锅里煮开，转小火再煮十分钟，然后把大蒜拍碎和花椒一起放进去，关火焖五分钟。倒进洗脚盆里，加点陈醋，水温能下手了就可以泡，每天泡一次，一次泡二十分钟左右。\n\n记不住可以收藏好，有时间慢慢看。"
+  },
+  "locks": {
+    "formula_items": [
+      {"raw": "桃树叶一大把", "locked_text": "桃树叶一大把", "normalization": [], "provenance": "source_verbatim", "requires_approval": false},
+      {"raw": "生姜五片", "locked_text": "生姜五片", "normalization": [], "provenance": "source_verbatim", "requires_approval": false},
+      {"raw": "大蒜三瓣", "locked_text": "大蒜三瓣", "normalization": [], "provenance": "source_verbatim", "requires_approval": false},
+      {"raw": "花椒一小撮", "locked_text": "花椒一小撮", "normalization": [], "provenance": "source_verbatim", "requires_approval": false}
+    ],
+    "diseases": [
+      {"raw": "腰腿疼痛", "locked_text": "腰腿疼痛", "normalization": [], "provenance": "source_verbatim", "requires_approval": false}
+    ],
+    "syndromes": [
+      {"raw": "寒湿入骨", "locked_text": "寒湿痹阻", "normalization": ["terminology:寒湿入骨→寒湿痹阻"], "provenance": "review_approved", "requires_approval": false}
+    ],
+    "numeric_hooks": []
+  },
+  "machine_assertions": {
+    "required_literals": ["腰腿疼痛", "桃树叶一大把", "生姜五片", "大蒜三瓣", "花椒一小撮", "寒湿痹阻"],
+    "forbidden_literals": ["桃树叶1大把", "生姜5片", "大蒜3瓣", "保证治好"],
+    "max_chars": 300,
+    "title_decision": "unchanged"
+  },
+  "manual_dimensions": ["钩子力度", "二创质量", "叙事链", "引导语双接缝", "口播自然度", "医学边界", "核心干货完整度"]
+}

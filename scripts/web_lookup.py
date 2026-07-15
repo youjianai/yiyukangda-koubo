@@ -173,7 +173,7 @@ def main():
         buf.write(f"\n========== 查询: {q} ==========\n")
         buf.write("  [" + " | ".join(notes) + "]\n")
         if not items:
-            buf.write("  (无可信结果，换查询词或回退内置知识 + review_note 标注人工复核)\n")
+            buf.write("  (无可信结果，换查询词或回退内置知识并保守处理)\n")
         for i, it in enumerate(items, 1):
             buf.write(f"  {i}. {it['title']}\n")
             if it["url"]:

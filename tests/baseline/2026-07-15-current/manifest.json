@@ -1,0 +1,30 @@
+{
+  "baseline_id": "2026-07-15-current",
+  "source": "working_tree",
+  "note": "This baseline captures the current working tree, including uncommitted and untracked files. It is not equivalent to Git HEAD.",
+  "runtime": {
+    "date": "2026-07-15",
+    "python": "3.12",
+    "provider": "current Claude Code configured upstream; exact model is not assumed"
+  },
+  "pre_change_tests": {
+    "command": "python -m unittest discover -s C:/Users/Administrator/.claude/skills/yiyukangda-koubo/tests -p test_*.py -v",
+    "result": "10 tests passed"
+  },
+  "files": {
+    "SKILL.md": "0d7b8b1a6fe28a8cd4c11821eba201bb43424f7c61cf402c7d03d8a269335600",
+    "references/rewrite_playbook.md": "3952923126e7769bfa3b3038d17f9961a8a3bdb0655477c6287b256233a2741c",
+    "references/parse_check_spec.md": "1aca9b4e4ddf286c88d91f0bd6b8d300766dc26496036788e23ea980890b28ba",
+    "references/output_format.md": "43f8562aa6e13054b6db62636a8c5287435e9fe2022774e468a61e53cb3de5d9",
+    "references/guidance_library.json": "f978b23e483bee5740dfd5eb09ed6fe4f9f3b6f1ec8cca7b288483776dbd2400",
+    "scripts/pick_guidance.py": "cc771964ce7ab3866dc68b2b823e2230afd3eca78a4aee50aae7ed8c586e2422",
+    "scripts/validate_output.py": "46ede01e759f99521950af8fd8ecab8ba1ad10c8afec65c87cf7092d16be2b5f",
+    "scripts/build_docx.py": "12104eaed5a9c6b6531f9570a17aac4807725f01cea9c1ea98c0535c131035ae",
+    "tests/README.md": "f2cf1c198c626c672eb03cd1e7e03d46e13ba51193c4d94b4ce300365e670f98",
+    "tests/test_regression.py": "ee6985d0e4e99b15c280452f48c61450792bfeb5d49db30697733a548861d475"
+  },
+  "quality_outputs": {
+    "status": "not_captured",
+    "reason": "No structured, traceable before outputs existed in the Skill directory. Historical user-confirmed cases are represented by the existing case checklists; transcript-wide search was not performed."
+  }
+}

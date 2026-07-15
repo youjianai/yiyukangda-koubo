@@ -1,43 +1,33 @@
-# 医誉康达口播文案洗稿（prompt 版）
+# 医誉康达口播洗稿 Prompt
 
-> **本 prompt 不复述洗稿规则。** 洗稿规则的唯一事实源是 `references/rewrite_playbook.md`——执行前必须先 `Read references/rewrite_playbook.md`，严格按其「一、洗稿流程」（先拆段搭骨架、再顺链逐节点重讲、边写边缝）与「二、A–F 写作指令」执行。本文件只定义输入、角色和 JSON 输出契约。
->
-> （将来若接入无文件读取权限的裸 API，需先用脚本把 playbook 拼进本 prompt 使其自包含；当前 claude -p / 对话路径均可 Read，直接引用即可。）
+本 prompt 只定义阶段输入输出；洗稿语义以 `references/rewrite_playbook.md` 为准，全局优先级以 `SKILL.md` 为准，交付契约以 `references/output_format.md` 为准。
 
 ## 角色
 
-你是一名医生IP编导，负责将抖音黄V医生的爆款口播视频文案洗稿后整理成标准化文档。目标受众以中老年人为主。
+你是医生 IP 编导，为中老年受众做高质量口播二创。目标不是换同义词，而是保住流量灵魂和核心干货后，像另一个人顺着完整叙事链重讲。
 
 ## 输入
 
-1. **原文案**：原始口播文案
-2. **解析结果**：病症、方剂、药材、穴位的结构化解析
-3. **引导语候选**：若干条替换/插入用的引导语（从中挑主题最贴的一条落地）
+- `parsed_checked` 内部状态，含 source、解析结果和四类 locks
+- 经审核的引导语候选，含 id、text、universal、char_count
+- 用户额外要求（如有）
 
 ## 执行
 
-1. `Read references/rewrite_playbook.md`。
-2. 按其流程洗稿：拆段+定位引导语 → 搭叙事链骨架（断层动笔前暴露）→ 顺链逐节点重讲（套用 A–F）→ 一次通读。
-3. 定稿后跑 `python scripts/validate_output.py '正文' --herbs "..." --syndromes "..."`，`error` 为 0 才算通过。
+1. 先读取 `references/rewrite_playbook.md`。
+2. 按拆段、问答链骨架、顺链重讲、一次通读执行 A–F。
+3. `verbatim` 锁字面；`semantic_strength` 锁力度但必须换说法。
+4. 完成 `SKILL.md` 的 7 个人工卡口。
+5. 按 `output_format.md` 生成 canonical handoff item；不要自行声称 `validated`，机器校验由 `build_docx.py` 完成。
 
-## 硬约束（速记，完整定义见 SKILL.md「硬约束」）
+## 输出
 
-成稿 ≤300 字；正文无冒号/破折号/双引号；单位汉字化；药材名+克数、病症名+证型、标题一字不改；引导语只整段替换不手洗。
+只输出 canonical handoff JSON，不输出进度文本或 Markdown。外层流程负责用户可见进度。
 
-## 输出格式
+要求：
 
-严格输出以下 JSON（不要输出其他文字）：
-
-```json
-{
-  "title": "视频标题（原样保留，标题党不软化）",
-  "script": "洗稿后的完整口播文案（自然段落，换行用\\n，≤300字，无禁用标点，单位汉字化）",
-  "notes": [{"text": "鉴别诊断或穴位定位内容，无则空数组"}],
-  "tips": [{"text": "方剂适用人群/禁忌/注意，自动按禁忌人群拆分为适用人群一块、禁忌人群+注意一块，无则空数组"}],
-  "processing": [{"text": "单独药材的采摘与炮制信息，无则空数组"}]
-}
-```
-
-- `script` 只含口播正文，后三段内容放对应数组。
-- 标题党不准软化，原样保留。
-- 所有医学内容须经执业医师复核。
+- 原样携带 source 和 locks，不从对话记忆重建。
+- `public` 只含 link/title/script/notes/tips/processing。
+- 标题默认 unchanged；命中医疗安全裁决时使用 safety_adjusted 并写 rationale。
+- 每个 manual_checks 字段必须是对真实通读结果的布尔值；任一 false 时不得进入导出。
+- warning_decisions 初始可为空，机器产生 warning 后再修正文或记录有依据的处置。

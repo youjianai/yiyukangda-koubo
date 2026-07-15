@@ -1,50 +1,121 @@
-# 输出格式（output_format）
+# 输出与交付契约
 
-> 本文件是第五步「输出文档」的格式规范与 docx 段落映射。SKILL.md 只保留一句指针。
+本文件是第 5 步 canonical handoff、公开字段投影和 DOCX 映射的权威来源。洗稿写法不在本文件定义。
 
-## 成稿排版格式
+## 一、canonical handoff
 
-按以下固定格式整理，每个部分之间空一行：
+正式导出输入必须是 UTF-8 JSON：
 
+```json
+{
+  "schema_version": "2",
+  "stage": "rewritten",
+  "filename": "脂肪肝-洗稿文档",
+  "items": [
+    {
+      "source": {
+        "link": "https://...",
+        "title": "原标题",
+        "text": "原口播文案"
+      },
+      "locks": {
+        "formula_items": [{"raw": "荷叶10g", "locked_text": "荷叶10克", "normalization": ["unit:g→克"], "provenance": "source_normalized", "requires_approval": false}],
+        "diseases": [{"raw": "脂肪肝", "locked_text": "脂肪肝", "normalization": [], "provenance": "source_verbatim", "requires_approval": false}],
+        "syndromes": [],
+        "numeric_hooks": []
+      },
+      "title_decision": {
+        "type": "unchanged",
+        "rationale": ""
+      },
+      "manual_checks": {
+        "narrative_chain": true,
+        "hook_and_title": true,
+        "rewrite_quality": true,
+        "medical_boundary": true,
+        "lock_provenance": true,
+        "oral_naturalness": true,
+        "guidance_fit": true
+      },
+      "warning_decisions": {},
+      "public": {
+        "link": "https://...",
+        "title": "原标题",
+        "script": "洗稿后的口播正文",
+        "notes": [{"text": "鉴别诊断或穴位定位"}],
+        "tips": [{"text": "适用人群、禁忌人群和注意"}],
+        "processing": [{"text": "采摘与炮制"}]
+      }
+    }
+  ]
+}
 ```
-视频链接：[原链接]
-标题：[视频标题，标题党照常、保留悬念和钩子不软化；首句不必与标题逐字一致]
 
-[洗稿后的完整口播文案，首句可比标题更口语、不必逐字一致，自然段落分行，不写小标题，不加「口播脚本文案」标题]
+契约：
 
-【[鉴别诊断内容，或穴位定位与主治。无小标题，直接【】包裹。当前暂停联网→不附来源；没有则整段省略]】
-举例：【脂肪肝鉴别诊断：应与病毒性肝炎、酒精性肝病、原发性肝癌、肝硬化鉴别。】
+- `stage` 必须为 `rewritten`；`validated/exported` 只能由脚本产生，不由模型预填。
+- `source`、四类 locks、7 个人工卡口和 `public` 必须存在；空 locks 用 `[]`，不能省略。
+- lock 可用上述对象；旧数据中的纯字符串仅作为迁移兼容，等价于 `locked_text=该字符串`。
+- `title_decision.type` 只能为 `unchanged` 或 `safety_adjusted`。前者要求 `public.title == source.title`；后者必须有非空 rationale，且只允许按 `SKILL.md` 做最小安全修改。
+- `warning_decisions` 的键是 validator warning ID；值为 `resolved / false_positive / accepted_with_reason` 和非空理由。未处置 warning 阻断导出。
+- `public` 不得含 `locks/internal_review/manual_checks/validation/source/title_decision/warning_decisions`。
+- 字段职责是正式 handoff 门禁：`script` 只放口播内容，不得含防御性审稿腔或标准括注之外的额外辨证前提；`notes` 放鉴别诊断、非唯一病因等补充；`tips` 放完整适用/禁忌、辨证与使用边界；`processing` 只放采摘、炮制和储存。具体写法与急重病正文例外以 `rewrite_playbook.md` 为准。
 
-【[方剂适用人群。温馨提示自动按「禁忌人群」拆分为独立【】块，适用人群一块、禁忌人群+注意一块。没有则整段省略]】
-举例：
-【适用人群：痰湿内盛、饮食油腻、体态偏胖、大便黏滞、肢体困重者，可辅助化湿降脂、通便。】
-【禁忌人群：脾胃虚寒、大便溏薄、易腹泻者，胃酸过多、胃溃疡人群不宜服用，孕妇及低血压患者慎用。注意：此方偏温，不可空腹、不宜长期大量服用。本品为食疗调理方，不可替代药物，服用后出现胃部不适请即停服。】
+## 二、公开投影
 
-【[如有单独药材，逐味列出采摘与炮制信息。没有则整段省略]】
-举例：【荷叶的采摘与炮制：夏季采摘鲜叶，去梗晒至七八成干后切丝可晒干，或置锅内以武火炒至炭黑色。】
+脚本从 canonical handoff 确定性投影为：
+
+```json
+{
+  "filename": "脂肪肝-洗稿文档",
+  "items": [
+    {
+      "link": "https://...",
+      "title": "标题",
+      "script": "口播正文",
+      "notes": [],
+      "tips": [],
+      "processing": []
+    }
+  ]
+}
 ```
 
-- 口播脚本正文部分**不用任何 markdown 标题（# ##）**，用自然段落分行。
-- 所有数字用阿拉伯数字（10克 不是 十克）。
-- 后三段【】包裹，无粗体标题；温馨提示按禁忌人群拆两个【】块；空段自动跳过。
-- **正文部分始终不附来源**；备注/温馨提示/采摘炮制三段当前暂停联网 → source 留空、绝不编造，联网恢复后才写真实来源。
+严格白名单：
 
-## docx 导出（固化脚本，不现写代码，不逐条停下等确认）
+- 顶层只允许 `filename/items`。
+- item 只允许 `link/title/script/notes/tips/processing`。
+- 后三段 entry 只允许 `text/source`；当前暂停联网时 `source` 应为空或省略。
+- 未知字段和内部字段一律拒绝，不做“忽略后继续”。
 
-草稿整理好后直接用 `build_docx.py` 生成 Word（用户若要改会主动提出）：
+## 三、正文与数字
 
-1. 把定稿写成 `input.json`（UTF-8）放系统临时目录（Windows 用 `%TEMP%`、macOS/Linux 用 `/tmp`，不落桌面）。每条含 `link / title / script / notes / tips / processing`，另有 `filename` 字段。
-2. 在 skill 目录下运行 `python scripts/build_docx.py <input.json路径>`（默认输出到当前用户桌面；可加第二个参数指定输出目录）。
-3. 脚本按固定排版产出 .docx：多篇时每篇开头加「第N条」序号、单篇不加、条间浅灰细横线分隔、视频链接/标题粗体标签与内容同行、正文宋体五号/10.5pt。文件名取 `filename`：单条用「[核心病症]-洗稿文档」，批量用「[批次名]-成稿」。
-4. 跑完删掉临时 `input.json`，桌面与 skill 目录不留临时文件。
+- 正文用自然段换行，不写 Markdown 标题或小标题。
+- 正文 ≤300 字，无禁用标点、字母单位和 `【】`。
+- 不执行“所有数字全局转阿拉伯数字”。标题、数字钩子、剂量、时间和原始份量词按锁定表达保留；`五片、三瓣、一大把`不得改成 `5片、3瓣、1大把`。
+- `notes/tips/processing` 不得包含复核免责声明。
 
-## input.json 段落映射
+## 四、Word 排版
 
-- `link` = 视频链接
-- `title` = 标题（标题党不软化）
-- `script` = 口播正文（换行分段或段落数组；≤300 字、无禁用标点、单位汉字化、无【】）
-- `notes` = 备注（鉴别诊断、穴位定位与主治）
-- `tips` = 温馨提示（方剂适用/禁忌/注意；穴位操作与禁忌）
-- `processing` = 采摘与炮制（单独药材）
+输出顺序：
 
-每条 entry 形如 `{"text":"...","source":"..."}`，`source` 可省略；空数组表示该段无内容、自动跳过。
+1. 视频链接，粗体标签与内容同行
+2. 标题，标签和标题内容粗体
+3. 口播正文，自然段分行，无正文小标题
+4. `notes`
+5. `tips`
+6. `processing`
+
+后三段每块用 `【】` 包裹，不加粗小标题；空段跳过。`tips` 按“禁忌人群”拆为适用人群一块、禁忌人群+注意一块。单篇不加序号；多篇加「第N条」并用浅灰细横线分隔。正文宋体五号 10.5pt。
+
+## 五、导出
+
+将 handoff 放系统临时目录，在 Skill 根目录运行：
+
+```bash
+python scripts/build_docx.py <handoff.json路径> [输出目录]
+```
+
+脚本读取一次 handoff，对每个 `public.script` 做 preflight，再用同一字符串渲染。批量任一项失败则不创建最终 DOCX。filename 必须是安全 basename，不得包含绝对路径、`..`、目录分隔符或 Windows 保留名。
+
+流程只删除自己创建的临时 handoff；不得删除或覆盖既有用户文件。默认输出到桌面，测试必须显式传临时输出目录。

@@ -1,0 +1,27 @@
+{
+  "id": "03-blurred-vision",
+  "source": {
+    "link": "",
+    "title": "眼睛模糊看不清，教你一个土方法",
+    "text": "眼睛模糊看不清，别急着花冤枉钱过度治疗。今天再说一次这个土方法，用对了，能少花冤枉钱。\n这个土方法，因为太实用，很少有人愿意一次性讲清楚，讲明白。今天我免费分享出来，只希望老百姓的每一份血汗钱都能花在刀刃上。只要你记住了，我就没有白讲。\n中医讲肝开窍于目，肝火旺了，瘀血把经络堵住，眼睛就容易干涩、发花、发红疼痛。跟大家说一味天然药材，青葙子。经辨证属于肝火上炎的话，取10到15克煮水喝，能帮助清肝泻火、明目退翳（需辨证为肝火上炎）。平时眼睛红赤干涩、容易上火、口苦的朋友可以试试。青光眼的朋友别用。\n记不住就先收藏，用的时候方便找。"
+  },
+  "locks": {
+    "formula_items": [
+      {"raw": "青葙子10到15克", "locked_text": "青葙子10到15克", "normalization": ["combine:药材与剂量合并保全"], "provenance": "source_normalized", "requires_approval": false}
+    ],
+    "diseases": [
+      {"raw": "眼睛模糊看不清", "locked_text": "眼睛模糊看不清", "normalization": [], "provenance": "source_verbatim", "requires_approval": false}
+    ],
+    "syndromes": [
+      {"raw": "肝火上炎", "locked_text": "肝火上炎", "normalization": [], "provenance": "source_verbatim", "requires_approval": false}
+    ],
+    "numeric_hooks": []
+  },
+  "machine_assertions": {
+    "required_literals": ["眼睛模糊看不清", "青葙子10到15克", "肝火上炎", "（需辨证为肝火上炎）"],
+    "forbidden_literals": ["关键是先看自己到底适不适合", "视物模糊不一定都是这个原因", "在辨证合适的前提下"],
+    "max_chars": 300,
+    "title_decision": "unchanged"
+  },
+  "manual_dimensions": ["土方法钩子力度", "稀缺分享结构", "二创质量", "正文与后三段分区", "单次标准辨证括注", "口播自然度", "医学边界", "核心干货完整度"]
+}

@@ -1,113 +1,173 @@
 # -*- coding: utf-8 -*-
-"""从引导语知识库随机取候选引导语，打印到 stdout（每行一条）。
-
-用法：
-    python scripts/pick_guidance.py [--mode short|long|any] [--count N]
-
-模式：
-    short  优先从短引导语（≤75字）中随机选，适合原文较长需压缩整体的场景
-    long   优先从长引导语（≥95字）中随机选，适合原文较短需充实整体的场景
-    any    从全部引导语中随机选（默认）
-
-多候选（--count N，默认 3）：一次返回 N 条不重复候选，交由调用方按主题挑定，
-避免「随机取一条→替换→事后发现不匹配→回头重取」的循环。候选优先取通用型
-（universal != false，如交医生朋友/有缘人，任何主题都搭），不足再用利益绑定型补。
-
-就近取（方案B）：short/long 命中池不足 NEAR_MIN_POOL 条时，向相邻长度就近补足。
-去重（方案E）：按归一化文本（去标点、空白）去重，同一条只进池一次。
-
-库文件：本脚本上级目录下的 references/guidance_library.json
-结构兼容：纯字符串数组 ["...", "..."]，或对象数组 [{"text":"...", "universal":true}]。
-对象缺 universal 字段时按利益绑定词表推断（省钱/长高/省下…钱 等标非通用），存量条目不加字段也能跑。
-"""
+"""从已审核引导语库选择候选，支持可复现抽样和正文预算。"""
 import argparse
 import json
 import os
 import random
 import re
 import sys
+from difflib import SequenceMatcher
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LIB = os.path.join(HERE, "..", "references", "guidance_library.json")
 
-SHORT_MAX = 75       # ≤75 字为短引导语（理想阈值）
-LONG_MIN = 95        # ≥95 字为长引导语（理想阈值）
-NEAR_MIN_POOL = 12   # short/long 命中池小于此值时，向相邻长度就近补足（而非回退全部）
-DEFAULT_COUNT = 3    # 默认返回候选数
-
-# 去重用：去掉标点、空白、下划线，只留文字与数字后比较
+SHORT_MAX = 75
+LONG_MIN = 95
+NEAR_MIN_POOL = 12
+DEFAULT_COUNT = 3
+VALID_STATUS = {"approved", "quarantined"}
 _NORM_RE = re.compile(r"[\W_]+", re.UNICODE)
+_BENEFIT_BOUND = (
+    "省钱", "少遭罪", "长高", "省下", "少花钱", "不花冤枉钱",
+    "少花冤枉钱", "少挨一刀", "不用跑医院", "治疗的方子",
+)
+_RISK_PATTERNS = {
+    "attacks_peers": ("药店就要干不下去", "药店都要干不下去", "利益都会受损", "高价药"),
+    "self_treatment": ("小毛病，咱不求人", "回去试一试", "自己就能调"),
+    "second_person_plural": ("你们",),
+    "disease_binding": ("腰腿疼痛", "颈肩僵痛", "全身关节不适"),
+}
 
-# 利益绑定词：引导语把点赞/关注与具体利益（省钱、长高等）挂钩，主题适配性差，视为非通用
-_BENEFIT_BOUND = ("省钱", "少遭罪", "长高", "省下", "少花钱", "不花冤枉钱")
+
+class LibraryError(ValueError):
+    pass
 
 
-def _norm(text):
+def normalize(text):
     return _NORM_RE.sub("", text)
 
 
-def _infer_universal(text):
-    """无 universal 字段时的兜底判断：含利益绑定词 → 非通用（False），否则通用（True）。"""
-    return not any(w in text for w in _BENEFIT_BOUND)
+def infer_universal(text):
+    return not any(word in text for word in _BENEFIT_BOUND)
+
+
+def infer_risk_tags(text):
+    return [tag for tag, words in _RISK_PATTERNS.items() if any(word in text for word in words)]
+
+
+def parse_entry(entry, index):
+    """兼容旧字符串；正式库对象执行严格 schema 校验。"""
+    if isinstance(entry, str):
+        text = entry.strip()
+        if not text:
+            raise LibraryError("第%d条是空字符串" % index)
+        risks = infer_risk_tags(text)
+        return {
+            "id": "legacy-%03d" % index,
+            "text": text,
+            "status": "quarantined" if risks else "approved",
+            "universal": infer_universal(text),
+            "risk_tags": risks,
+            "char_count": len(text),
+        }
+    if not isinstance(entry, dict):
+        raise LibraryError("第%d条必须是字符串或对象" % index)
+
+    required = {"id", "text", "status", "universal", "risk_tags", "char_count"}
+    missing = sorted(required - set(entry))
+    unknown = sorted(set(entry) - required)
+    if missing:
+        raise LibraryError("第%d条缺字段：%s" % (index, ",".join(missing)))
+    if unknown:
+        raise LibraryError("第%d条含未知字段：%s" % (index, ",".join(unknown)))
+
+    item_id = entry["id"]
+    text = entry["text"]
+    status = entry["status"]
+    universal = entry["universal"]
+    risk_tags = entry["risk_tags"]
+    char_count = entry["char_count"]
+    if not isinstance(item_id, str) or not item_id.strip():
+        raise LibraryError("第%d条 id 必须是非空字符串" % index)
+    if not isinstance(text, str) or not text.strip():
+        raise LibraryError("第%d条 text 必须是非空字符串" % index)
+    if status not in VALID_STATUS:
+        raise LibraryError("第%d条 status 必须是 approved/quarantined" % index)
+    if not isinstance(universal, bool):
+        raise LibraryError("第%d条 universal 必须是布尔值" % index)
+    if not isinstance(risk_tags, list) or not all(isinstance(x, str) and x for x in risk_tags):
+        raise LibraryError("第%d条 risk_tags 必须是字符串数组" % index)
+    if not isinstance(char_count, int) or char_count != len(text.strip()):
+        raise LibraryError("第%d条 char_count 与 text 实际字数不一致" % index)
+    return {
+        "id": item_id.strip(),
+        "text": text.strip(),
+        "status": status,
+        "universal": universal,
+        "risk_tags": risk_tags,
+        "char_count": char_count,
+    }
 
 
 def load_items(path):
-    """加载库并按归一化文本去重。返回 [{"text":..., "universal":bool}]。
-    若 JSON 损坏，给出明确报错并退出，不静默返回空列表。"""
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except json.JSONDecodeError as e:
-        sys.stderr.write("引导语库 JSON 已损坏，请检查修复后重试：%s\n" % e)
-        sys.exit(3)
+        with open(path, "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise LibraryError("引导语库无法读取：%s" % exc) from exc
     if not isinstance(data, list):
-        sys.stderr.write("引导语库 JSON 格式错误：顶层必须是数组。\n")
-        sys.exit(3)
-    items, seen = [], set()
-    for it in data:
-        if isinstance(it, str):
-            t, uni = it.strip(), None
-        elif isinstance(it, dict):
-            t = str(it.get("text", "")).strip()
-            uni = it.get("universal", None)
-        else:
-            t, uni = "", None
-        if not t:
-            continue
-        key = _norm(t)
-        if key in seen:
-            continue
-        seen.add(key)
-        universal = bool(uni) if isinstance(uni, bool) else _infer_universal(t)
-        items.append({"text": t, "universal": universal})
+        raise LibraryError("引导语库顶层必须是数组")
+
+    items = []
+    seen_ids = set()
+    seen_text = set()
+    for index, entry in enumerate(data, 1):
+        item = parse_entry(entry, index)
+        key = normalize(item["text"])
+        if not key:
+            raise LibraryError("第%d条归一化后为空" % index)
+        if item["id"] in seen_ids:
+            raise LibraryError("重复 id：%s" % item["id"])
+        if key in seen_text:
+            raise LibraryError("重复文本：%s" % item["id"])
+        seen_ids.add(item["id"])
+        seen_text.add(key)
+        items.append(item)
     return items
 
 
 def filter_by_mode(items, mode):
-    """short/long 优先取对应长度档；池子不足 NEAR_MIN_POOL 时，向最接近目标的相邻长度就近补足。"""
     if mode == "short":
-        primary = [x for x in items if len(x["text"]) <= SHORT_MAX]
+        primary = [x for x in items if x["char_count"] <= SHORT_MAX]
         if len(primary) >= NEAR_MIN_POOL:
             return primary
-        spare = sorted((x for x in items if len(x["text"]) > SHORT_MAX), key=lambda x: len(x["text"]))
+        spare = sorted(
+            (x for x in items if x["char_count"] > SHORT_MAX),
+            key=lambda x: (x["char_count"], x["id"]),
+        )
         return primary + spare[: max(0, NEAR_MIN_POOL - len(primary))]
     if mode == "long":
-        primary = [x for x in items if len(x["text"]) >= LONG_MIN]
+        primary = [x for x in items if x["char_count"] >= LONG_MIN]
         if len(primary) >= NEAR_MIN_POOL:
             return primary
-        spare = sorted((x for x in items if len(x["text"]) < LONG_MIN), key=lambda x: len(x["text"]), reverse=True)
+        spare = sorted(
+            (x for x in items if x["char_count"] < LONG_MIN),
+            key=lambda x: (-x["char_count"], x["id"]),
+        )
         return primary + spare[: max(0, NEAR_MIN_POOL - len(primary))]
-    return items  # any
+    return list(items)
 
 
-def pick(pool, count):
-    """优先从通用型（universal）随机不重复抽 count 条，不足再用非通用型补足。"""
-    universal = [x for x in pool if x["universal"]]
-    other = [x for x in pool if not x["universal"]]
-    random.shuffle(universal)
-    random.shuffle(other)
-    ordered = universal + other
-    return ordered[:count]
+def pick(pool, count, seed=None):
+    rng = random.Random(seed)
+    universal = sorted((x for x in pool if x["universal"]), key=lambda x: x["id"])
+    bound = sorted((x for x in pool if not x["universal"]), key=lambda x: x["id"])
+    rng.shuffle(universal)
+    rng.shuffle(bound)
+    return (universal + bound)[:count]
+
+
+def suspicious_pairs(items, threshold=0.88):
+    """报告疑似高度雷同项，不自动删除。"""
+    pairs = []
+    for left_index, left in enumerate(items):
+        a = normalize(left["text"])
+        for right in items[left_index + 1:]:
+            b = normalize(right["text"])
+            score = SequenceMatcher(None, a, b).ratio()
+            if score >= threshold:
+                pairs.append((left["id"], right["id"], score))
+    return pairs
 
 
 def main():
@@ -117,44 +177,44 @@ def main():
     except Exception:
         pass
 
-    parser = argparse.ArgumentParser(description="从引导语库随机取候选引导语（每行一条）")
-    parser.add_argument(
-        "--mode",
-        choices=["short", "long", "any"],
-        default="any",
-        help="short=≤75字优先 / long=≥95字优先 / any=全部（默认）",
-    )
-    parser.add_argument(
-        "--count",
-        type=int,
-        default=DEFAULT_COUNT,
-        help="返回候选条数（默认 %d），优先通用型" % DEFAULT_COUNT,
-    )
-    parser.add_argument(
-        "--lib-path",
-        default=None,
-        help="引导语库 JSON 文件的路径（默认 ../references/guidance_library.json）",
-    )
+    parser = argparse.ArgumentParser(description="从已审核引导语库选择候选（每行一条）")
+    parser.add_argument("--mode", choices=["short", "long", "any"], default="any")
+    parser.add_argument("--count", type=int, default=DEFAULT_COUNT)
+    parser.add_argument("--seed", type=int, default=None, help="固定随机种子，回归测试必须传")
+    parser.add_argument("--max-chars", type=int, default=None, help="候选最大字数，按正文剩余预算传入")
+    parser.add_argument("--lib-path", default=None)
+    parser.add_argument("--report-similar", action="store_true", help="只报告疑似高度雷同项")
     args = parser.parse_args()
 
-    count = max(1, args.count)
-    lib_path = args.lib_path if args.lib_path else LIB
-    if not os.path.exists(lib_path):
-        sys.stderr.write("引导语库不存在：%s\n" % lib_path)
-        sys.exit(1)
+    if args.count < 1:
+        parser.error("--count 必须大于 0")
+    if args.max_chars is not None and args.max_chars < 1:
+        parser.error("--max-chars 必须大于 0")
 
-    all_items = load_items(lib_path)
-    if not all_items:
-        sys.stderr.write("引导语库为空，请先往 references/guidance_library.json 导入引导语。\n")
-        sys.exit(2)
+    try:
+        all_items = load_items(args.lib_path or LIB)
+    except LibraryError as exc:
+        sys.stderr.write(str(exc) + "\n")
+        sys.exit(3)
 
-    pool = filter_by_mode(all_items, args.mode)
-    if not pool:
-        sys.stderr.write("警告：--mode %s 无匹配条目，已回退到全部。\n" % args.mode)
-        pool = all_items
+    if args.report_similar:
+        for left, right, score in suspicious_pairs(all_items):
+            print("%s\t%s\t%.3f" % (left, right, score))
+        return
 
-    for x in pick(pool, count):
-        print(x["text"])
+    approved = [x for x in all_items if x["status"] == "approved"]
+    if args.max_chars is not None:
+        approved = [x for x in approved if x["char_count"] <= args.max_chars]
+    pool = filter_by_mode(approved, args.mode)
+    if len(pool) < args.count:
+        sys.stderr.write(
+            "合规候选不足：需要%d条，当前只有%d条。请扩大字数预算或补充已审核候选。\n"
+            % (args.count, len(pool))
+        )
+        sys.exit(4)
+
+    for item in pick(pool, args.count, args.seed):
+        print(item["text"])
 
 
 if __name__ == "__main__":
