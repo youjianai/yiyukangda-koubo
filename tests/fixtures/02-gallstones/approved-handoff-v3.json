@@ -1,0 +1,38 @@
+{
+  "schema_version": "3",
+  "stage": "rewritten",
+  "filename": "胆结石-传统洗稿回归",
+  "items": [
+    {
+      "source": {
+        "link": "",
+        "title": "90%的胆结石，记好一个排石方",
+        "text": "90%的胆结石，查出来先别自己吓自己。今天把这个排石方讲给你，不用多花冤枉钱。\n\n这个方子很多人到处打听都求不来，我只分享给刷到这里的有缘人。要是你愿意跟我打声招呼，送朵小花儿，往后就多了一位靠谱的医生朋友。\n\n在中医看来，胆结石多和下焦湿热、肝胆湿热有关，湿热不清，时间久了就容易聚成结石。\n\n可以取海金沙9克、金钱草15克、鸡内金9克，煮水代茶饮，能帮助清利湿热、通淋排石。这个方子记不住就先收藏，用的时候翻出来看。"
+      },
+      "hooks": {
+        "verbatim": [
+          {"id":"disease-1","kind":"disease","raw":"胆结石","delivery_text":"胆结石","source_span":[4,7],"normalization_ops":[],"provenance":"source_verbatim","approval_status":"approved","safety_disposition":"verbatim"},
+          {"id":"formula-1","kind":"formula_item","raw":"海金沙9克","delivery_text":"海金沙9克","source_span":[151,156],"normalization_ops":[],"provenance":"source_verbatim","approval_status":"approved","safety_disposition":"verbatim"},
+          {"id":"formula-2","kind":"formula_item","raw":"金钱草15克","delivery_text":"金钱草15克","source_span":[157,163],"normalization_ops":[],"provenance":"source_verbatim","approval_status":"approved","safety_disposition":"verbatim"},
+          {"id":"formula-3","kind":"formula_item","raw":"鸡内金9克","delivery_text":"鸡内金9克","source_span":[164,169],"normalization_ops":[],"provenance":"source_verbatim","approval_status":"approved","safety_disposition":"verbatim"},
+          {"id":"syndrome-1","kind":"syndrome","raw":"下焦湿热","delivery_text":"下焦湿热","source_span":[117,121],"normalization_ops":[],"provenance":"source_verbatim","approval_status":"approved","safety_disposition":"verbatim"}
+        ],
+        "semantic_strength": [
+          {"id":"engagement-1","kind":"engagement","source_text":"跟我打声招呼，送朵小花儿","source_span":[76,88],"truth_status":"verified","safety_disposition":"demoted"}
+        ]
+      },
+      "review_findings": [],
+      "title_review": {"decision":"unchanged","title":"90%的胆结石，记好一个排石方","reason_codes":[],"rationale":""},
+      "review_record": {"narrative_chain":true,"hook_and_title":true,"rewrite_quality":true,"medical_boundary":true,"lock_provenance":true,"oral_naturalness":true,"guidance_fit":true},
+      "warning_decisions": {},
+      "public": {
+        "link": "",
+        "title": "90%的胆结石，记好一个排石方",
+        "script": "体检查出胆结石，先别过度恐慌。今天把这碗排石汤记好，关键时候能帮你少走不少弯路。\n\n建议先送上一颗小爱心，再留下一句谢谢。这样的实用内容，错过以后不一定还能刷到。\n\n中医认为，胆结石多和肝胆湿热、下焦湿热有关。结石还比较小的时候，可以取海金沙9克、金钱草15克、鸡内金9克，一起煮水喝，有助于清热利尿、通淋排石（需辨证为下焦湿热）。如果平时还有小便黄赤、尿频尿痛、舌苔黄腻，这个方法可以记下来。\n\n但结石比较大，或者已经反复疼痛，该治疗还是要及时治疗，别一直硬扛。记不住就先收藏，需要的时候翻出来看。",
+        "notes": [],
+        "tips": [],
+        "processing": []
+      }
+    }
+  ]
+}

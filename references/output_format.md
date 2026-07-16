@@ -85,18 +85,27 @@
 
 顶层只允许 `filename/items`；item 只允许 `link/title/script/notes/tips/processing`；后三段 entry 只允许 `text/source`。hooks、审批、review record、warning decisions 和 provenance 不进入公开 Word。
 
-## 四、正文与规范化
+## 四、公开字段职责
+
+- `script` 只放可直接发布的口播节点，保留原稿钩子、病机、方药剂量、功效方向和直接落方视角；只有原稿已有提醒或明确急重病存在延误风险时，才保留一句精炼就医提示。
+- `notes` 放鉴别诊断、症状或病因并非唯一等补充。
+- `tips` 放完整适用/禁忌人群、使用、常规治疗、复查和非正文级就医边界。
+- `processing` 放炮制、采摘、煎煮和制作步骤。
+- 普通稿允许后三段为空，不得为了医学完整自动生成「仅供参考」「不能替代规范诊疗」「请咨询医生」「由专科医生综合评估」等泛化免责或防御性模板。
+- 内部复核信息不得进入任何公开字段；急重病正文例外按 `rewrite_playbook.md` 裁决。
+
+## 五、正文与规范化
 
 - 正文 ≤300 字，用自然段换行，不写 Markdown 小标题。
 - 禁用标点和单位以 `validate_output.py` 为机器事实源。
 - 输入只允许确定性的换行规范化；正文每行首尾空白直接拒绝，不在渲染阶段静默删除。
 - validator 校验的 `public.script` 由 DOCX 渲染器原样按换行拆段，不再生成另一份字符串。
 
-## 五、Word 排版
+## 六、Word 排版
 
 输出顺序：视频链接、标题、正文自然段、notes、tips、processing。后三段用 `【】` 包裹；tips 按“禁忌人群”拆块。单篇不加序号，多篇加「第N条」和浅灰分隔线。正文宋体五号 10.5pt。
 
-## 六、导出
+## 七、导出
 
 ```bash
 python scripts/build_docx.py <handoff.json> [output_dir]

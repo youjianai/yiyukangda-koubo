@@ -30,7 +30,10 @@ BRACKET_RE = re.compile(r"[【】]")
 SELF_NAME_RE = re.compile(r"(?:我是|这里是|本人是).{0,12}(?:医生|大夫|主任医师)")
 CHITCHAT = ("话说回来", "有意思的是")
 STREET_TONE = ("这招你赚了", "你算赶上了", "捡到宝", "占便宜", "赚到了")
-POPSCI_BRIDGE = ("常会用到", "临床上常用", "一般会用", "顺着这个思路")
+POPSCI_BRIDGE = (
+    "常会用到", "临床上常用", "一般会用", "顺着这个思路", "常见的配伍思路",
+    "不能替代规范诊疗", "不能代替规范诊疗",
+)
 CURE_PROMISE = ("根治", "断根", "越喝越好", "越喝肝越好", "100%治好", "百分百治好", "包治", "药到病除")
 SELF_TREATMENT = ("小毛病自己就能调", "小毛病，咱不求人", "不用治疗", "不用看医生", "回去试一试")
 ATTACK_PEERS = ("药店就要干不下去", "药店都要干不下去", "卖高价暴利产品")
@@ -93,6 +96,27 @@ EDITORIAL_TONE_RULES = (
         ),
         "tips",
         "重复辨证前提",
+    ),
+    (
+        re.compile(
+            r"(?:具体)?(?:能不能|是否)" + _SENTENCE_GAP_8
+            + r"(?:用|使用|手术|治疗)" + _SENTENCE_GAP_12
+            + r"(?:要|应|需要)" + _SENTENCE_GAP_8
+            + r"(?:让|由)" + _SENTENCE_GAP_12
+            + r"(?:医生|医师|专科|专业人员)" + _SENTENCE_GAP_12
+            + r"(?:判断|评估|决定)"
+        ),
+        "tips",
+        "防御性诊疗说明",
+    ),
+    (
+        re.compile(
+            r"(?:请|建议|需要)" + _SENTENCE_GAP_6
+            + r"(?:咨询|询问)" + _SENTENCE_GAP_8
+            + r"(?:医生|医师|专业人士|专业人员)"
+        ),
+        "tips",
+        "泛化咨询模板",
     ),
 )
 _PAREN_CONTENT_RE = re.compile(r"（([^（）\r\n]*)）|\(([^()\r\n]*)\)")
@@ -201,12 +225,13 @@ def find_copied_phrases(source_text, output_text, locked, width=10):
         phrase = source[index:index + width]
         if phrase in seen:
             continue
-        source_fully_locked = all(source_covered[index:index + width])
+        source_lock_dominated = sum(source_covered[index:index + width]) >= width - 3
         output_index = output.find(phrase)
-        output_fully_locked = (
-            output_index >= 0 and all(output_covered[output_index:output_index + width])
+        output_lock_dominated = (
+            output_index >= 0
+            and sum(output_covered[output_index:output_index + width]) >= width - 3
         )
-        if output_index >= 0 and not (source_fully_locked and output_fully_locked):
+        if output_index >= 0 and not (source_lock_dominated and output_lock_dominated):
             seen.add(phrase)
             hits.append(phrase)
     return hits

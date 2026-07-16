@@ -15,7 +15,8 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 from handoff_contract import (
-    approved_findings_projection, compile_locks, validate_v3_handoff_shape,
+    approved_findings_projection, compile_locks, validate_engagement_preservation,
+    validate_v3_handoff_shape,
 )
 from validate_output import find_medical_safety, validate_text
 
@@ -174,6 +175,7 @@ def validate_v3_handoff(data):
                 raise ValueError("%s public.%s 必须由 approved review_findings 确定性投影" % (path, key))
         _validate_public_medical_safety(public, path + ".public")
         locks = compile_locks(item["hooks"])
+        validate_engagement_preservation(item["hooks"], public["script"], path + ".hooks")
         report = validate_text(public["script"], locks, item["source"]["text"])
         if report["errors"]:
             raise ValueError("%s 正文校验失败：%s" % (path, "；".join(x["message"] for x in report["errors"])))

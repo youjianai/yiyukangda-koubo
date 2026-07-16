@@ -42,11 +42,12 @@ python -m unittest discover -s tests -p "test_*.py" -v
 
 ## 结构化 fixture
 
-- `case.json` 是输入、locks 和机器断言的事实源。
+- `case.json` 是输入、旧版 locks 兼容数据和机器断言的事实源；正式新增 canonical handoff 使用 schema v3 hooks。
 - `input.txt` 必须与 `case.json.source.text` 一致。
 - `expected_checks.md` 只写人工语义检查，不创设机器规则。
 - 完整失败稿必须保留真实上下文，不能只冻结孤立坏词。
-- approved output 只在用户明确确认后写入，用于防止口播质量回退。
+- approved output 只在用户明确确认后写入，用于防止口播质量回退；确认的是完整文本时逐字冻结，不以“方向认可”为由自行补写。
+- 防御性科普回归至少覆盖擅自改标题/数字、删除互动、旁观式配伍桥和正文泛化诊疗说明。
 - 临时 handoff 和 DOCX 全部放 `TemporaryDirectory()`，不在桌面或 Skill 目录留产物。
 
 ## 轻量人工 A/B 评审

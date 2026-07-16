@@ -15,14 +15,12 @@
       {"raw": "胆结石", "locked_text": "胆结石", "normalization": [], "provenance": "source_verbatim", "requires_approval": false}
     ],
     "syndromes": [
-      {"raw": "肝胆湿热", "locked_text": "肝胆湿热", "normalization": [], "provenance": "source_verbatim", "requires_approval": false}
+      {"raw": "下焦湿热", "locked_text": "下焦湿热", "normalization": [], "provenance": "source_verbatim", "requires_approval": false}
     ],
-    "numeric_hooks": [
-      {"raw": "90%", "locked_text": "90%", "normalization": [], "provenance": "source_verbatim", "requires_approval": false}
-    ]
+    "numeric_hooks": []
   },
   "machine_assertions": {
-    "required_literals": ["90%", "胆结石", "肝胆湿热", "海金沙9克", "金钱草15克", "鸡内金9克"],
+    "required_literals": ["胆结石", "肝胆湿热", "下焦湿热", "海金沙9克", "金钱草15克", "鸡内金9克"],
     "forbidden_literals": ["不让你多花一分冤枉钱", "这个病的根子就是湿热", "不用治疗", "保证排石"],
     "max_chars": 300,
     "title_decision": "unchanged"

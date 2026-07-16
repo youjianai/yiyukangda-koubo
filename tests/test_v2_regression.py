@@ -61,7 +61,7 @@ def valid_item(script=None, source_text=None):
             "title": "腰腿疼痛泡脚方",
             "script": script,
             "notes": [],
-            "tips": [{"text": "适用人群，寒湿偏重者。禁忌人群，皮肤破损者不宜。注意，水温不宜过高。"}],
+            "tips": [],
             "processing": [],
         },
     }
@@ -172,9 +172,47 @@ class HandoffContractV3Tests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "未核实|unverified"):
             handoff_contract.validate_parsed_state(state)
 
-    def test_review_findings_have_deterministic_public_targets(self):
-        for target in ("notes", "tips", "processing"):
-            self.assertIn(target, handoff_contract.REVIEW_TARGETS)
+    def test_review_approved_non_contiguous_hook_uses_sentinel_span(self):
+        source = "方中提到青葙子，取10到15克。"
+        hook = {
+            "id": "formula-1", "kind": "formula_item", "raw": "青葙子10到15克",
+            "delivery_text": "青葙子10到15克", "source_span": [-1, -1],
+            "normalization_ops": ["combine:药材与剂量合并保全"],
+            "provenance": "review_approved", "approval_status": "approved",
+            "safety_disposition": "verbatim",
+        }
+        handoff_contract.validate_verbatim_hook(hook, source, "hook")
+        hook["source_span"] = [0, 2]
+        with self.assertRaisesRegex(ValueError, "source_span"):
+            handoff_contract.validate_verbatim_hook(hook, source, "hook")
+
+    def test_engagement_hook_is_valid_and_function_is_preserved(self):
+        source = "愿意的话送朵小花，留句话。"
+        hooks = {"verbatim": [], "semantic_strength": [{
+            "id": "engagement-1", "kind": "engagement", "source_text": "送朵小花，留句话",
+            "source_span": [4, 12], "truth_status": "verified", "safety_disposition": "demoted",
+        }]}
+        handoff_contract.validate_hooks(hooks, source)
+        handoff_contract.validate_engagement_preservation(hooks, "觉得实用就点个红心。")
+        with self.assertRaisesRegex(ValueError, "互动功能未保留"):
+            handoff_contract.validate_engagement_preservation(hooks, "记住这个方法。")
+
+    def test_title_reason_codes_and_number_preservation(self):
+        source_title = "90%的胆结石，记好一个排石方"
+        handoff_contract.validate_title_review(
+            {"decision": "unchanged", "title": source_title, "reason_codes": [], "rationale": ""},
+            source_title,
+        )
+        with self.assertRaisesRegex(ValueError, "非硬红线理由"):
+            handoff_contract.validate_title_review(
+                {"decision": "safety_adjusted", "title": "查出胆结石，记好这个思路", "reason_codes": ["unsupported_percentage"], "rationale": "删比例"},
+                source_title,
+            )
+        with self.assertRaisesRegex(ValueError, "不得删除原标题数字"):
+            handoff_contract.validate_title_review(
+                {"decision": "safety_adjusted", "title": "胆结石，记好一个排石方", "reason_codes": ["efficacy_guarantee"], "rationale": "处理危险保证"},
+                source_title,
+            )
 
 
 class CountCharsV2Tests(unittest.TestCase):
@@ -240,6 +278,9 @@ class ValidateOutputV2Tests(unittest.TestCase):
             "中医讲究辨证论治。",
             "在中医看来，这类情况常和湿热有关。",
             "这类视物模糊常和用眼疲劳有关。",
+            "带状疱疹72小时内需及时就医，外敷只是辅助。",
+            "突然胸痛伴大汗或呼吸困难，要立即就医。",
+            "症状突然加重，尽快去急诊。",
         )
         for text in good_cases:
             with self.subTest(text=text):
@@ -296,6 +337,19 @@ class ValidateOutputV2Tests(unittest.TestCase):
     def test_single_today_preview_passes(self):
         good_text = "今天要说的方法很简单，青葙子10到15克煎水服用，记不住先收藏。"
         self.assertEqual([], validate_output.validate_text(good_text)["errors"])
+
+    def test_defensive_popsci_templates_are_blocked(self):
+        bad_cases = (
+            "这是常见的配伍思路。",
+            "具体能不能用，要让中医师结合体质判断。",
+            "是否需要手术，应由专科医生综合评估。",
+            "这个方子不能替代规范诊疗。",
+            "建议咨询专业医生。",
+        )
+        for text in bad_cases:
+            with self.subTest(text=text):
+                issue_ids = {x["id"] for x in validate_output.validate_text(text)["errors"]}
+                self.assertTrue({"popsci-bridge", "editorial-tone"}.intersection(issue_ids), text)
 
     def test_popsci_bridge_transitions_are_blocked(self):
         for text in ("在中医看来和肝火有关，常会用到青葙子", "临床上常用这味药", "顺着这个思路，一般会用"):
@@ -501,6 +555,26 @@ class BuildDocxCliE2ETests(unittest.TestCase):
             text=True,
             encoding="utf-8",
         )
+
+    def test_approved_gallstone_v3_fixture_exports_through_public_cli(self):
+        fixture = ROOT / "tests" / "fixtures" / "02-gallstones"
+        data = json.loads((fixture / "approved-handoff-v3.json").read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory() as handoff_dir, tempfile.TemporaryDirectory() as output_dir:
+            result = self.run_cli(data, handoff_dir, output_dir)
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            output_path = Path(output_dir) / "胆结石-传统洗稿回归.docx"
+            self.assertTrue(output_path.is_file())
+            paragraphs = [p.text for p in Document(output_path).paragraphs]
+            expected = build_docx.split_script(data["items"][0]["public"]["script"])
+            body_start = next(i for i, text in enumerate(paragraphs) if text.startswith("标题：")) + 1
+            self.assertEqual(expected, paragraphs[body_start:body_start + len(expected)])
+            with zipfile.ZipFile(output_path) as archive:
+                xml_text = archive.read("word/document.xml").decode("utf-8")
+            for forbidden in (
+                "hooks", "review_record", "warning_decisions", "provenance",
+                "approval_status", "safety_disposition", "source_span",
+            ):
+                self.assertNotIn(forbidden, xml_text)
 
     def test_v3_rewritten_handoff_exports_through_public_cli(self):
         source_text = "眼睛模糊看不清，方中用青葙子10到15克，证型为肝火上炎。"
@@ -724,15 +798,31 @@ class FixtureContractTests(unittest.TestCase):
             item["warning_decisions"] = {}
             build_docx.validate_handoff(valid_handoff([item], filename=approved_path.parent.name))
 
+    def test_gallstone_confirmed_and_defensive_outputs_are_frozen(self):
+        fixture = self.fixtures_dir / "02-gallstones"
+        approved = (fixture / "approved-output.txt").read_text(encoding="utf-8")
+        failed = (fixture / "failed-output-defensive-popsci.txt").read_text(encoding="utf-8")
+        self.assertIn("建议先送上一颗小爱心，再留下一句谢谢", approved)
+        self.assertIn("可以取海金沙9克、金钱草15克、鸡内金9克", approved)
+        approved_ids = {x["id"] for x in validate_output.validate_text(approved)["errors"]}
+        self.assertFalse({"popsci-bridge", "editorial-tone"}.intersection(approved_ids))
+        self.assertIn("常见的配伍思路", failed)
+        failed_ids = {x["id"] for x in validate_output.validate_text(failed)["errors"]}
+        self.assertIn("popsci-bridge", failed_ids)
+        self.assertIn("editorial-tone", failed_ids)
+
     def test_blurred_vision_complete_failure_outputs_are_frozen(self):
         fixture = self.fixtures_dir / "03-blurred-vision"
         repeated = (fixture / "failed-output-repeated-preview.txt").read_text(encoding="utf-8")
         popsci = (fixture / "failed-output-popsci-bridge.txt").read_text(encoding="utf-8")
+        editorial = (fixture / "failed-output-editorial-tone.txt").read_text(encoding="utf-8")
         approved = (fixture / "approved-output.txt").read_text(encoding="utf-8")
         self.assertIn("今天再把这个土方法讲透", repeated)
         self.assertIn("today-preview-repeat", {x["id"] for x in validate_output.validate_text(repeated)["errors"]})
         self.assertIn("顺着这个思路，常会用到", popsci)
         self.assertIn("popsci-bridge", {x["id"] for x in validate_output.validate_text(popsci)["errors"]})
+        self.assertIn("关键是先看自己到底适不适合", editorial)
+        self.assertIn("editorial-tone", {x["id"] for x in validate_output.validate_text(editorial)["errors"]})
         self.assertIn("大家可以取青葙子10到15克", approved)
         self.assertNotIn("today-preview-repeat", {x["id"] for x in validate_output.validate_text(approved)["errors"]})
         self.assertNotIn("popsci-bridge", {x["id"] for x in validate_output.validate_text(approved)["errors"]})

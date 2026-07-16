@@ -1,15 +1,26 @@
 # -*- coding: utf-8 -*-
 """Canonical handoff v3 contract helpers and explicit v2 migration."""
 from copy import deepcopy
+import re
 
 SCHEMA_VERSION = "3"
 LOCK_KINDS = ("formula_items", "diseases", "syndromes", "numeric_hooks")
 HOOK_KINDS = {"formula_item", "disease", "syndrome", "numeric_hook", "fixed_phrase"}
-SEMANTIC_HOOK_KINDS = {"scarcity", "emotion", "urgency", "identity", "contrast"}
+SEMANTIC_HOOK_KINDS = {"scarcity", "emotion", "urgency", "identity", "contrast", "engagement"}
 APPROVAL_STATUSES = {"approved", "pending", "rejected"}
 SAFETY_DISPOSITIONS = {"verbatim", "demoted", "rejected", "pending"}
 REVIEW_TARGETS = {"notes", "tips", "processing"}
 TITLE_DECISIONS = {"unchanged", "safety_adjusted", "blocked_editorial_review"}
+TITLE_REASON_CODES = {
+    "ordinary_sign_severe_disease", "efficacy_guarantee", "replace_regular_care",
+    "acute_care_delay", "peer_attack", "uncontrollable_outcome", "unverified_identity",
+}
+ENGAGEMENT_MARKERS = {
+    "like": ("点赞", "红心", "爱心", "小红花", "送朵花", "送花", "送朵小花", "送朵小花儿"),
+    "comment": ("评论", "留言", "打声招呼", "留下一句", "说一句", "写在评论区"),
+    "follow": ("关注", "点加号", "加个关注"),
+    "save": ("收藏", "收好", "存下来", "翻出来看", "用时翻看", "用到时再翻"),
+}
 REVIEW_CHECK_KEYS = {
     "narrative_chain", "hook_and_title", "rewrite_quality", "medical_boundary",
     "lock_provenance", "oral_naturalness", "guidance_fit",
@@ -65,6 +76,9 @@ def validate_verbatim_hook(hook, source_text, path):
     if hook["provenance"].startswith("source_"):
         if start < 0 or end <= start or source_text[start:end] != raw:
             raise ValueError(path + " source_span 与原文 raw 不一致")
+    elif [start, end] != [-1, -1]:
+        if start < 0 or end <= start or source_text[start:end] != raw:
+            raise ValueError(path + " 非 source provenance 的 source_span 必须真实命中 raw 或使用 [-1,-1]")
     if hook["provenance"] == "source_verbatim" and raw != delivery:
         raise ValueError(path + " source_verbatim 要求 raw == delivery_text")
     if hook["provenance"] == "source_normalized" and not hook["normalization_ops"]:
@@ -125,24 +139,61 @@ def validate_review_findings(findings, path="review_findings"):
             raise ValueError(finding_path + ".approval_status 无效")
 
 
-def validate_title_review(title_review, source_title, public_title=None, path="title_review"):
+def _engagement_categories(text):
+    text = text or ""
+    return {
+        category for category, markers in ENGAGEMENT_MARKERS.items()
+        if any(marker in text for marker in markers)
+    }
+
+
+def validate_engagement_preservation(hooks, script, path="hooks"):
+    """互动保功能不保原句；只对高置信可分类的 verified hook 做门禁。"""
+    required = set()
+    for hook in hooks.get("semantic_strength", []):
+        if (
+            hook.get("kind") == "engagement"
+            and hook.get("truth_status") == "verified"
+            and hook.get("safety_disposition") not in {"rejected", "pending"}
+        ):
+            required.update(_engagement_categories(hook.get("source_text", "")))
+    if required and not required.intersection(_engagement_categories(script)):
+        labels = {"like": "点赞", "comment": "评论", "follow": "关注", "save": "收藏"}
+        raise ValueError(
+            "%s 原稿互动功能未保留，成稿至少保留一类：%s"
+            % (path, "/".join(labels[value] for value in sorted(required)))
+        )
+
+
+def validate_title_review(title_review, source_title, public_title=None, path="title_review", allow_blocked=False):
     _require_exact_keys(title_review, {"decision", "title", "reason_codes", "rationale"}, path)
     decision = title_review["decision"]
     title = _text(title_review["title"], path + ".title")
     if decision not in TITLE_DECISIONS:
         raise ValueError(path + ".decision 无效")
-    if not isinstance(title_review["reason_codes"], list) or not all(isinstance(x, str) and x for x in title_review["reason_codes"]):
+    reason_codes = title_review["reason_codes"]
+    if not isinstance(reason_codes, list) or not all(isinstance(x, str) and x for x in reason_codes):
         raise ValueError(path + ".reason_codes 必须是非空字符串数组或空数组")
+    unknown_codes = sorted(set(reason_codes) - TITLE_REASON_CODES)
+    if unknown_codes:
+        raise ValueError(path + ".reason_codes 含非硬红线理由：" + ",".join(unknown_codes))
     if not isinstance(title_review["rationale"], str):
         raise ValueError(path + ".rationale 必须是字符串")
-    if decision == "unchanged" and title != source_title:
-        raise ValueError(path + " unchanged 要求 title 与 source.title 一致")
+    if decision == "unchanged":
+        if title != source_title:
+            raise ValueError(path + " unchanged 要求 title 与 source.title 一致")
+        if reason_codes or title_review["rationale"].strip():
+            raise ValueError(path + " unchanged 不得填写 reason_codes 或 rationale")
     if decision == "safety_adjusted":
         if title == source_title:
             raise ValueError(path + " safety_adjusted 必须修改标题")
-        if not title_review["reason_codes"] or not title_review["rationale"].strip():
+        if not reason_codes or not title_review["rationale"].strip():
             raise ValueError(path + " safety_adjusted 必须填写 reason_codes 和 rationale")
-    if decision == "blocked_editorial_review":
+        source_numbers = re.findall(r"\d+(?:\.\d+)?%?|[一二三四五六七八九十百千万]+成", source_title)
+        missing_numbers = [token for token in source_numbers if token not in title]
+        if missing_numbers:
+            raise ValueError(path + " safety_adjusted 不得删除原标题数字：" + ",".join(missing_numbers))
+    if decision == "blocked_editorial_review" and not allow_blocked:
         raise ValueError(path + " 标题等待编导裁决，不能导出")
     if public_title is not None and title != public_title:
         raise ValueError(path + ".title 必须与 public.title 一致")
@@ -204,7 +255,7 @@ def validate_parsed_state(data):
     _text(data["source"]["link"], "parsed.source.link", allow_empty=True)
     validate_hooks(data["hooks"], source_text, "parsed.hooks")
     validate_review_findings(data["review_findings"], "parsed.review_findings")
-    validate_title_review(data["title_review"], source_title, path="parsed.title_review")
+    validate_title_review(data["title_review"], source_title, path="parsed.title_review", allow_blocked=True)
     if not isinstance(data["internal_review"], dict):
         raise ValueError("parsed.internal_review 必须是对象")
     return data
