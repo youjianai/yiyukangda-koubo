@@ -2,152 +2,273 @@
   {
     "id": "guidance-001",
     "text": "今天讲的方法认真记好，收藏好，有用就回来给我一个小红花，愿意支持我的可以点点右方的加号，做法比炒菜都简单",
-    "status": "approved",
-    "universal": true,
+    "review_status": "approved",
+    "content_types": [
+      "kitchen_tip"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [],
     "risk_tags": [],
     "char_count": 52
   },
   {
     "id": "guidance-002",
-    "text": "我知道，很多人刷到医生没兴趣了就划走了。但是，我还是想分享一些实用的知识，脱掉白大褂。我也是普通老百姓，如果你愿意交我这个医生朋友，不妨给我点一个免费的小红心，支持一下，我每天都会分享很多实用科普的小知识。",
-    "status": "approved",
-    "universal": true,
+    "text": "很多人刷到健康内容，没兴趣就划走了。但我还是想把实用的知识说给你听。如果你愿意交我这个朋友，不妨点一个免费的小红心支持一下，我会继续分享实用的健康知识。",
+    "review_status": "approved",
+    "content_types": [
+      "general_health",
+      "formula",
+      "acupoint",
+      "kitchen_tip"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [],
     "risk_tags": [],
-    "char_count": 103
+    "char_count": 76
   },
   {
     "id": "guidance-003",
     "text": "生过病和没生过病的人都得认真听。我现在要教你的这招是有钱都买不到的土方子，学会能省下不少辛苦钱。小毛病，咱不求人，不管你点不点赞，我今天都要把这个祖传的方法毫无保留的教给你，因为你是大数据筛选出来的有福之人。",
-    "status": "quarantined",
-    "universal": false,
+    "review_status": "quarantined",
+    "content_types": [
+      "formula"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [
+      "verified_ancestral_method"
+    ],
     "risk_tags": [
-      "self_treatment"
+      "self_treatment",
+      "unverified_ancestry"
     ],
     "char_count": 104
   },
   {
     "id": "guidance-004",
-    "text": "你就记好我接下来讲的方子，建议送上一颗小爱心，留下一句谢谢，错过这次，下次很难再碰到了。",
-    "status": "approved",
-    "universal": true,
+    "text": "接下来这个方子你记好，建议送上一颗小爱心，错过这次，下次就不一定还能刷到。",
+    "review_status": "approved",
+    "content_types": [
+      "formula"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [],
     "risk_tags": [],
-    "char_count": 44
+    "char_count": 37
   },
   {
     "id": "guidance-005",
     "text": "方子其实很简单，人人都用得起，错过就太亏了。这个方子好多人挤破脑袋都想学，但我只教给能看到我的有缘人。不妨给点个免费的小红心，交个医生朋友。我每天都在这里分享健康知识，只要能多一个人，因为我的科普而受益，那我的努力就没有白费。你愿意点一下右边的加号支持一下我吗？言归正传，",
-    "status": "approved",
-    "universal": true,
-    "risk_tags": [],
+    "review_status": "quarantined",
+    "content_types": [
+      "formula"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [
+      "verified_doctor_identity",
+      "verified_daily_posting"
+    ],
+    "risk_tags": [
+      "condition_pair",
+      "account_claim"
+    ],
     "char_count": 136
   },
   {
     "id": "guidance-006",
     "text": "从医近30年，这个土方法帮助了不少朋友。在外面，你花钱都不一定听得到，很多人都想学。今天我就免费分享给大家，建议先点个小红心收藏。",
-    "status": "approved",
-    "universal": true,
-    "risk_tags": [],
+    "review_status": "quarantined",
+    "content_types": [
+      "formula"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [
+      "verified_practice_years_30"
+    ],
+    "risk_tags": [
+      "identity_claim",
+      "unverified_outcome"
+    ],
     "char_count": 65
   },
   {
     "id": "guidance-007",
     "text": "首先，我要恭喜你，刷到了这个几个亿都买不到的无价之宝，老祖宗传承了上千年，不管你愿不愿意给我点一个免费的小红心，我都会毫无保留的把治疗的方子交给你，特别感谢那些随手点赞的朋友，因为你的善举能让更多有需要的人看到。这也是在为自己和家人积攒福气。",
-    "status": "quarantined",
-    "universal": true,
+    "review_status": "quarantined",
+    "content_types": [
+      "formula"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [
+      "verified_ancestral_method"
+    ],
     "risk_tags": [
-      "outcome_guarantee"
+      "outcome_guarantee",
+      "unverified_ancestry"
     ],
     "char_count": 121
   },
   {
     "id": "guidance-008",
     "text": "很多人把这个方子当成宝贝，都舍不得一次性讲清楚讲明白。我今天公开，纯粹是为了对得起我这身白大褂和不远万里来找我的患者。大伙儿看到不妨点个小红心收藏好，免得要用的时候找不到。",
-    "status": "approved",
-    "universal": true,
-    "risk_tags": [],
+    "review_status": "quarantined",
+    "content_types": [
+      "formula"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [
+      "verified_doctor_identity",
+      "verified_patient_history"
+    ],
+    "risk_tags": [
+      "identity_claim",
+      "patient_claim"
+    ],
     "char_count": 86
   },
   {
     "id": "guidance-009",
-    "text": "这种实惠好用的方子别人很少外传，但我从不藏私，方子公开透明，你要用得上，点个小红心加个关注，就当交个说实话的医生朋友。",
-    "status": "approved",
-    "universal": true,
+    "text": "这种实惠好用的方子很少有人往外说，我愿意把它讲清楚。你要是用得上，点个小红心加个关注，就当交个说实话的朋友。",
+    "review_status": "approved",
+    "content_types": [
+      "formula"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [],
     "risk_tags": [],
-    "char_count": 59
+    "char_count": 54
   },
   {
     "id": "guidance-010",
     "text": "你今天刚好刷到了，说明你和健康有缘。我现在要教你的这招呢，是有钱都买不到的土方子。很多人都不知道诶，但是我只交给能够刷到我的有缘人。如果你愿意交我这个医生朋友，可以点个免费的小红心支持一下，我每天也会在平台上分享更多的健康知识，希望能够帮到更多有需要的朋友。",
-    "status": "approved",
-    "universal": true,
-    "risk_tags": [],
+    "review_status": "quarantined",
+    "content_types": [
+      "formula"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [
+      "verified_doctor_identity",
+      "verified_daily_posting"
+    ],
+    "risk_tags": [
+      "absolute_scarcity",
+      "account_claim"
+    ],
     "char_count": 129
   },
   {
     "id": "guidance-011",
-    "text": "能刷到这条视频，你就是有福之人。今天分享的居家调理方，外面花钱都学不到，只送给刷到我的朋友。觉得有用就点颗红心，交个中医朋友，我会经常分享实用养生干货，帮大家少花冤枉钱。",
-    "status": "approved",
-    "universal": false,
+    "text": "能刷到这条内容，也算是一份缘分。接下来这个居家调理方，你可以先收藏。觉得内容有用就点颗红心，我会继续分享实用的养生知识。",
+    "review_status": "approved",
+    "content_types": [
+      "formula",
+      "kitchen_tip"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [],
     "risk_tags": [],
-    "char_count": 85
+    "char_count": 60
   },
   {
     "id": "guidance-012",
     "text": "这个方子因为太实用，太实惠，一旦公布，好多专靠忽悠人赚快钱的药店就要干不下去。但我从医几十年，有好方好药从不私藏。我不赚你什么，只要你用得上，想去哪开都可以。如果你愿意交我这个医生朋友，可以送上一个免费的小红心。以后要是忘了，可以随时翻出来再看一遍。",
-    "status": "quarantined",
-    "universal": true,
+    "review_status": "quarantined",
+    "content_types": [
+      "formula"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [
+      "verified_doctor_identity",
+      "verified_practice_years"
+    ],
     "risk_tags": [
-      "attacks_peers"
+      "attacks_peers",
+      "identity_claim"
     ],
     "char_count": 125
   },
   {
     "id": "guidance-013",
-    "text": "分享一个我珍藏多年的实用小方法。 不管身体好坏，建议大家都认真听完。 这个小方子，花钱都很难买到，点赞收藏做好笔记，错过就很难再找到了。",
-    "status": "approved",
-    "universal": true,
+    "text": "下面这个实用方法，你认真听完。很多人知道以后都先收藏起来，免得需要的时候找不到。",
+    "review_status": "approved",
+    "content_types": [
+      "general_health",
+      "formula",
+      "acupoint",
+      "kitchen_tip"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [],
     "risk_tags": [],
-    "char_count": 68
+    "char_count": 40
   },
   {
     "id": "guidance-014",
     "text": "虽然我们素未谋面，但从现在开始，只要给我打个招呼，一朵小红花，从此，身边多一个中医朋友。以后你有任何问题，我都会像对待朋友那样掏心窝子，帮你省钱，少遭罪。也特别感谢每一个点红心点加号的朋友，你们随手的善举能让我的科普更好的传到千家万户。",
-    "status": "quarantined",
-    "universal": false,
+    "review_status": "quarantined",
+    "content_types": [
+      "general_health"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [
+      "verified_doctor_identity"
+    ],
     "risk_tags": [
-      "second_person_plural"
+      "second_person_plural",
+      "outcome_guarantee"
     ],
     "char_count": 118
   },
   {
     "id": "guidance-015",
-    "text": "这个土方法，因为太实用，很少有人愿意一次性讲清楚，讲明白。今天我免费分享出来，只希望老百姓的每一份血汗钱都能花在刀刃上。只要你记住了，我就没有白讲。",
-    "status": "approved",
-    "universal": true,
+    "text": "这个方法很实用，很多人却不愿意一次讲清楚。今天我免费分享出来，只希望这些内容真正能帮到有需要的人。你记住了，我就没有白讲。",
+    "review_status": "approved",
+    "content_types": [
+      "general_health",
+      "formula",
+      "acupoint",
+      "kitchen_tip"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [],
     "risk_tags": [],
-    "char_count": 74
+    "char_count": 61
   },
   {
     "id": "guidance-016",
-    "text": "分享一个家常小妙招，便宜又好用，就因为太过实用，很多人当成宝贝不愿意分享。我今天免费分享给大家，只希望大家少花冤枉钱把钱花在刀刃上。只要你学会了，我就没有白讲。刷到了就留下一句平安健康，也是在为自己积攒福气。",
-    "status": "approved",
-    "universal": false,
+    "text": "这个家常小方法便宜又实用，很多人却不愿意往外说。我今天免费分享给你，只希望能帮你少走弯路。觉得有用就先收藏。",
+    "review_status": "approved",
+    "content_types": [
+      "kitchen_tip"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [],
     "risk_tags": [],
-    "char_count": 104
+    "char_count": 54
   },
   {
     "id": "guidance-017",
-    "text": "大家好，既然大数据把我推给了你，说明是我们的缘分。点赞，加关注，从今天起，我就是你身边靠谱的医生朋友了，我会每天在平台更新养生科普，希望大家可以少走一些弯路，少花一些冤枉钱。",
-    "status": "approved",
-    "universal": true,
+    "text": "既然刷到了，也算是一份缘分。觉得内容有用，可以点个小红心、加个关注。我会继续分享实用的健康知识，希望能帮你少走一些弯路。",
+    "review_status": "approved",
+    "content_types": [
+      "general_health",
+      "formula",
+      "acupoint",
+      "kitchen_tip"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [],
     "risk_tags": [],
-    "char_count": 87
+    "char_count": 60
   },
   {
     "id": "guidance-018",
     "text": "这个方子一旦公开，很多人的利益都会受损。我分享出来，只是不想看见大家乱花冤枉钱。很多人一刷到我，连个招呼也不打就划走了。不过没关系，只要有一个人因此受益，送上一朵小红花，都是我坚持下去的动力。",
-    "status": "quarantined",
-    "universal": true,
+    "review_status": "quarantined",
+    "content_types": [
+      "formula"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [],
     "risk_tags": [
       "attacks_peers"
     ],
@@ -155,219 +276,395 @@
   },
   {
     "id": "guidance-019",
-    "text": "这个调理方法简单又好用，很多人当成传家宝轻易不外传，我免费分享出来，就是不想让大家盲目养生、白花冤枉钱。大家可以点赞收藏在家慢慢学习。",
-    "status": "approved",
-    "universal": true,
+    "text": "这个方法简单又实用，很多人轻易不愿意往外说。我愿意免费分享，只希望你少走弯路。觉得有用，可以先收藏起来。",
+    "review_status": "approved",
+    "content_types": [
+      "general_health",
+      "formula",
+      "acupoint",
+      "kitchen_tip"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [],
     "risk_tags": [],
-    "char_count": 67
+    "char_count": 52
   },
   {
     "id": "guidance-020",
-    "text": "90%的人都不知道这个实用的小知识，好多人挤破脑袋都想学。但我只交给刷到我的朋友，从现在开始和我打个招呼，送一朵小红花，从此就多了个靠谱的医生朋友，我会天天分享健康知识。",
-    "status": "approved",
-    "universal": true,
+    "text": "很多人还不知道这个实用知识，好多人想学，却没人愿意一次说清楚。我愿意讲给刷到的你听。觉得有用，可以点个小红心、加个关注。",
+    "review_status": "approved",
+    "content_types": [
+      "general_health",
+      "formula",
+      "acupoint",
+      "kitchen_tip"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [],
     "risk_tags": [],
-    "char_count": 85
+    "char_count": 60
   },
   {
     "id": "guidance-021",
-    "text": "我现在要教你的这招，可是花钱都难买的方法，很多人挤破脑袋都想学，但我只交给刷到我的有缘人，我别无他求，只盼着大家都能身体健康，大家学会了也不要急着划走，可以留下一个小红心，这也是我坚持下去的动力。",
-    "status": "approved",
-    "universal": true,
+    "text": "接下来这个方法，很多人花钱都不一定能学到。我愿意毫无保留地讲给你听，不图别的，只希望这些内容真正能帮到有需要的人。",
+    "review_status": "approved",
+    "content_types": [
+      "general_health",
+      "formula",
+      "acupoint",
+      "kitchen_tip"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [],
     "risk_tags": [],
-    "char_count": 98
+    "char_count": 57
   },
   {
     "id": "guidance-022",
-    "text": "今天跟大家分享的这招，很多人花钱都不一定能学到，今天免费分享给刷到的朋友。不求名利，只希望人人身体健康，觉得内容实用，帮忙点个红心，就是最大的支持。",
-    "status": "approved",
-    "universal": true,
+    "text": "这个方法很多人花钱都不一定能学到，我愿意免费分享给刷到的你。不求名利，只希望内容真正有用。觉得实用，帮忙点个红心，就是最大的支持。",
+    "review_status": "approved",
+    "content_types": [
+      "general_health",
+      "formula",
+      "acupoint",
+      "kitchen_tip"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [],
     "risk_tags": [],
-    "char_count": 74
+    "char_count": 65
   },
   {
     "id": "guidance-023",
-    "text": "说实话，我不明白为什么别人随手拍的搞笑视频动则就能有几万赞，可我真心实意的为老百姓做健康科普，要么发不出去，要么没多少人看。但今天哪怕只有一个人点赞，一个人愿意看，我也会咬牙坚持，能帮到一个是一个。",
-    "status": "approved",
-    "universal": true,
+    "text": "健康科普不一定有多少人愿意看，但哪怕只有一个人觉得有用，我也愿意继续讲下去。你愿意听，可以点个小红心支持一下。",
+    "review_status": "approved",
+    "content_types": [
+      "general_health",
+      "formula",
+      "acupoint",
+      "kitchen_tip"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [],
     "risk_tags": [],
-    "char_count": 99
+    "char_count": 55
   },
   {
     "id": "guidance-024",
-    "text": "我现在分享的这一招是有钱都买不到的土方子，错过了这一次，下次可就难再碰到了。不管你要不要给我点一个免费的小红心，我都会毫无保留的交给你。",
-    "status": "approved",
-    "universal": true,
+    "text": "接下来这个方法，很多人花钱都不一定能学到。错过这一次，下次不一定还能刷到。无论你点不点赞，我都会把它讲清楚。",
+    "review_status": "approved",
+    "content_types": [
+      "general_health",
+      "formula",
+      "acupoint",
+      "kitchen_tip"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [],
     "risk_tags": [],
-    "char_count": 68
+    "char_count": 54
   },
   {
     "id": "guidance-025",
     "text": "这个土方子一旦公布，可能很多药店都要干不下去了，多少人挤破脑袋都想学。但是我只交给和平安健康有缘分的朋友。关注收藏，以后你身边就多了一个靠谱的医生朋友，我会每天分享实用养生小技巧。",
-    "status": "quarantined",
-    "universal": true,
+    "review_status": "quarantined",
+    "content_types": [
+      "formula"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [
+      "verified_doctor_identity",
+      "verified_daily_posting"
+    ],
     "risk_tags": [
-      "attacks_peers"
+      "attacks_peers",
+      "account_claim"
     ],
     "char_count": 90
   },
   {
     "id": "guidance-026",
     "text": "这个土办法是老祖宗传下来的，但是因为不挣钱，没人在外面跟你说了。我今天教给你可以记下来，回去试一试。如果你愿意交我这个医生朋友，可以点个赞支持一下，我会坚持跟你们分享更多的简单又实用的健康知识。",
-    "status": "quarantined",
-    "universal": true,
+    "review_status": "quarantined",
+    "content_types": [
+      "formula"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [
+      "verified_ancestral_method",
+      "verified_doctor_identity"
+    ],
     "risk_tags": [
       "self_treatment",
-      "second_person_plural"
+      "second_person_plural",
+      "unverified_ancestry"
     ],
     "char_count": 97
   },
   {
     "id": "guidance-027",
     "text": "从医这些年呢，在我眼里没有穷人和富人，只要你是病人，我都会竭尽全力的帮助，能帮一个是一个。这个视频呢，我发了三次，下架了3次，今天呢再发一次，能多帮一个是一个，哪怕只有一个人给我点赞，我这份努力就值得了。",
-    "status": "approved",
-    "universal": true,
-    "risk_tags": [],
+    "review_status": "quarantined",
+    "content_types": [
+      "general_health"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [
+      "verified_doctor_identity",
+      "verified_platform_history"
+    ],
+    "risk_tags": [
+      "identity_claim",
+      "platform_claim",
+      "condition_pair"
+    ],
     "char_count": 102
   },
   {
     "id": "guidance-028",
     "text": "很多人嫌弃这个方子太便宜，没利润，不愿意往外说，甚至都快被高价药搞得失传了。在别处，你花钱都不一定能听着。今天我就免费公布给屏幕前的有缘人，希望咱老祖宗的智慧传承下去，只要能帮你少花冤枉钱，少挨一刀，我就觉得我的坚持是值得的。",
-    "status": "quarantined",
-    "universal": false,
+    "review_status": "quarantined",
+    "content_types": [
+      "formula"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [
+      "verified_ancestral_method"
+    ],
     "risk_tags": [
       "attacks_peers",
-      "outcome_guarantee"
+      "outcome_guarantee",
+      "unverified_ancestry"
     ],
     "char_count": 113
   },
   {
     "id": "guidance-029",
-    "text": "今天就把这些知识，告诉刷到我、跟我有缘的朋友，如果你送我一朵小红花，从此你身边就多了一位靠谱的健康顾问。我会每天分享实用的养生知识，真心实意为你答疑解惑。",
-    "status": "approved",
-    "universal": true,
+    "text": "刷到这里，也算我们有缘。觉得内容实用，可以送一朵小红花、点个关注。我会继续分享养生知识，尽量把每一条都讲清楚。",
+    "review_status": "approved",
+    "content_types": [
+      "general_health",
+      "formula",
+      "acupoint",
+      "kitchen_tip"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [],
     "risk_tags": [],
-    "char_count": 77
+    "char_count": 55
   },
   {
     "id": "guidance-030",
     "text": "只要刷到我这个视频，我就要恭喜你了，这个传承几千年的老土方，帮助了成千上万的朋友，多少人挤破脑袋都想学，但是我只交给能刷到我的有缘人。要是你顺手送个小花、点个加号，我也会记录下来，以后遇到什么问题，我都会毫无保留地帮助你。",
-    "status": "quarantined",
-    "universal": true,
+    "review_status": "quarantined",
+    "content_types": [
+      "formula"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [
+      "verified_ancestral_method",
+      "verified_outcome_history"
+    ],
     "risk_tags": [
-      "outcome_guarantee"
+      "outcome_guarantee",
+      "unverified_ancestry"
     ],
     "char_count": 111
   },
   {
     "id": "guidance-031",
     "text": "这个方子因为太实用、没利润，很少有人愿意一次性讲清楚、讲明白。要是你划走了，我都替你感到可惜。都说点赞是情分，不点是本分。今天你能刷到我，说明咱们很有缘分。要是你给我打个招呼，送我一朵小红花，从此就多了一个靠谱的医生朋友，往后遇上什么难题，我都会像对待好朋友一样为你答疑解惑。",
-    "status": "quarantined",
-    "universal": true,
+    "review_status": "quarantined",
+    "content_types": [
+      "formula"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [
+      "verified_doctor_identity"
+    ],
     "risk_tags": [
-      "outcome_guarantee"
+      "outcome_guarantee",
+      "identity_claim"
     ],
     "char_count": 138
   },
   {
     "id": "guidance-032",
     "text": "很多人到处打听都求不来这个法子，我只分享给刷到我的有缘人。要是你愿意跟我打声招呼，送朵小花儿，往后就多了一位靠谱的医生朋友。感谢每个点赞的朋友，有你们的帮助，才让更多人看到这条知识。",
-    "status": "quarantined",
-    "universal": true,
+    "review_status": "quarantined",
+    "content_types": [
+      "formula"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [
+      "verified_doctor_identity"
+    ],
     "risk_tags": [
-      "second_person_plural"
+      "second_person_plural",
+      "identity_claim"
     ],
     "char_count": 91
   },
   {
     "id": "guidance-033",
     "text": "恭喜你刷到我这个珍藏几十年的土方子，好多人挤破脑袋都想学，但是我只交给刷到我的有缘人。要是你顺手送个小花，点个加号，我也会记录下来，以后遇到什么问题，我都会毫无保留的帮助你。",
-    "status": "quarantined",
-    "universal": true,
+    "review_status": "quarantined",
+    "content_types": [
+      "formula"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [
+      "verified_method_age"
+    ],
     "risk_tags": [
-      "outcome_guarantee"
+      "outcome_guarantee",
+      "identity_claim"
     ],
     "char_count": 87
   },
   {
     "id": "guidance-034",
     "text": "知道的人都在悄悄用，因为太实用，没利润，很少有人愿意一次性讲清楚。讲明白。要是划走了，我都替你感到可惜。都说点赞是情分，不点是本分。今天你能刷到我，说明咱们很有缘分。要是你给我打个招呼，送我一朵小红花，从此就多了一个靠谱的医生朋友。往后要遇上什么难题，我都会像对待好朋友一样为你答疑解惑。",
-    "status": "approved",
-    "universal": true,
-    "risk_tags": [],
+    "review_status": "quarantined",
+    "content_types": [
+      "formula"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [
+      "verified_doctor_identity"
+    ],
+    "risk_tags": [
+      "outcome_guarantee",
+      "identity_claim"
+    ],
     "char_count": 144
   },
   {
     "id": "guidance-035",
     "text": "很多人到处打听都求不来这个法子。我只分享给刷到这里的有缘人，不管你是腰腿疼痛，颈肩僵痛，全身关节不适，这一条内容一定要仔细看完。要是你愿意跟我打声招呼，送朵小花儿，往后就多了一位靠谱的医生朋友。感谢每个点赞的朋友，有你们的帮助，才让更多人看到这条知识。",
-    "status": "quarantined",
-    "universal": false,
+    "review_status": "quarantined",
+    "content_types": [
+      "formula"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [
+      "verified_doctor_identity"
+    ],
     "risk_tags": [
       "disease_binding",
-      "second_person_plural"
+      "second_person_plural",
+      "identity_claim"
     ],
     "char_count": 126
   },
   {
     "id": "guidance-036",
     "text": "学会了，别急着划走，点一个小红心，让我也沾沾你的好福气。",
-    "status": "approved",
-    "universal": true,
+    "review_status": "approved",
+    "content_types": [
+      "general_health",
+      "formula",
+      "acupoint",
+      "kitchen_tip"
+    ],
+    "placement": "closing",
+    "persona_requirements": [],
     "risk_tags": [],
     "char_count": 28
   },
   {
     "id": "guidance-037",
     "text": "不管你身体是否健康，只要刷到我这个视频，我就要恭喜你了，这个传承几千年的老土方，帮助了成千上万的朋友，多少人挤破脑袋都想学。但是我只交给能刷到我的有缘人。要是你顺手送个小花，点个加号，我也会记下来。以后遇到什么问题，我都会毫无保留的帮助你。",
-    "status": "quarantined",
-    "universal": true,
+    "review_status": "quarantined",
+    "content_types": [
+      "formula"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [
+      "verified_ancestral_method",
+      "verified_outcome_history"
+    ],
     "risk_tags": [
-      "outcome_guarantee"
+      "outcome_guarantee",
+      "unverified_ancestry"
     ],
     "char_count": 120
   },
   {
     "id": "guidance-038",
     "text": "今天就要恭喜你了，刷到我这个珍藏几十年的土方子，好多人挤破脑袋都想学，但是我只交给刷到我的有缘人。要是你顺手送个小花，点个加号，我也会记录下来，以后遇到什么问题，我都会毫无保留的帮助你",
-    "status": "quarantined",
-    "universal": true,
+    "review_status": "quarantined",
+    "content_types": [
+      "formula"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [
+      "verified_method_age"
+    ],
     "risk_tags": [
-      "outcome_guarantee"
+      "outcome_guarantee",
+      "identity_claim"
     ],
     "char_count": 92
   },
   {
     "id": "guidance-039",
-    "text": "好多人挤破脑袋都想学，但我只教给刷到我的有缘人。刷到了别忘了留下一句谢谢，顺手点个加号，往后多一位医生朋友为你答疑解惑。",
-    "status": "approved",
-    "universal": true,
+    "text": "这个方法好多人想学，我愿意讲给刷到的你听。觉得有用，可以留下一句谢谢，顺手点个加号，以后继续听我分享健康知识。",
+    "review_status": "approved",
+    "content_types": [
+      "general_health",
+      "formula",
+      "acupoint",
+      "kitchen_tip"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [],
     "risk_tags": [],
-    "char_count": 60
+    "char_count": 55
   },
   {
     "id": "guidance-040",
-    "text": "今天我就毫无保留地分享给你，我们只用几样厨房里的东西就能做。",
-    "status": "approved",
-    "universal": true,
+    "text": "今天我就毫无保留地分享给你，只用几样厨房里的东西就能做。",
+    "review_status": "approved",
+    "content_types": [
+      "kitchen_tip"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [],
     "risk_tags": [],
-    "char_count": 30
+    "char_count": 28
   },
   {
     "id": "guidance-041",
     "text": "因为我的粉丝少，所以我的视频很少有人能刷到。今天就一次给你讲清楚，要是你跟我打个招呼，送了一朵小红花，从此就多了个靠谱的医生朋友。特别感激每位点小红心和小加号的朋友。",
-    "status": "quarantined",
-    "universal": true,
+    "review_status": "quarantined",
+    "content_types": [
+      "general_health"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [
+      "verified_doctor_identity",
+      "verified_account_metrics"
+    ],
     "risk_tags": [
-      "account_identity"
+      "account_identity",
+      "identity_claim"
     ],
     "char_count": 83
   },
   {
     "id": "guidance-042",
-    "text": "许多人一刷到我，连个招呼都不打就划走了，但是没关系，只要我的分享能帮助到一个人，就是我坚持的动力。可以的话，不妨给我送上一朵小红花，点点我头像上的加号支持一下，我会每天给大家分享实用的健康知识。",
-    "status": "approved",
-    "universal": true,
+    "text": "很多人刷到健康内容，很快就划走了。但只要有一个人觉得有用，就是我继续分享的动力。可以的话，不妨送上一朵小红花、点个关注。",
+    "review_status": "approved",
+    "content_types": [
+      "general_health",
+      "formula",
+      "acupoint",
+      "kitchen_tip"
+    ],
+    "placement": "pre_content",
+    "persona_requirements": [],
     "risk_tags": [],
-    "char_count": 97
+    "char_count": 60
   }
 ]

@@ -94,10 +94,10 @@ python scripts/validate_output.py '正文' --formula-items "荷叶10克,陈皮6�
 
 ## 引导语库
 
-- 只使用 `status=approved` 的候选；`quarantined` 只保留审计，绝不进入默认候选。
-- 按正文剩余预算调用 `pick_guidance.py --max-chars N`；回归时必须传 `--seed`。
-- 已审核候选不逐字手洗，只允许删除账号自称/重复前缀并在段外补桥；候选本身违规时应隔离或弃选，不能依赖成稿阶段补救。
-- 新条目先按库 schema 标注 `id/status/universal/risk_tags/char_count`，再做精确去重和相似项复核。
+- 先按正文剩余预算和稿件类型调用 `pick_guidance.py --content-type <general_health|formula|acupoint|kitchen_tip> --placement pre_content --max-chars N --count 3`；回归时必须传 `--seed`。
+- 候选 JSON 含 `id/text`；只使用 `review_status=approved`、位置和类型匹配且不要求未验证身份事实的候选。
+- 已审核候选不逐字手洗，只允许删除与上下文重复的前缀并在段外补桥；首次候选集内可改选一次，不重新抽池。候选都不搭时允许用一句短承接或不加长引导语。
+- 新条目先按库 schema 标注 `id/review_status/content_types/placement/persona_requirements/risk_tags/char_count`，再做精确去重、相似项复核和 validator 兼容检查。
 - 入库后运行：
 
 ```bash
@@ -108,7 +108,7 @@ python -m unittest tests.test_regression.GuidanceLibraryTests -v
 
 - 正文 ≤300 字，禁冒号、破折号、中文/英文双引号和 `【】`；字母计量单位改为汉字。
 - 数字按批准表达分类保留：标题/数字钩子/剂量/时间/原始份量词不做全局转换；`五片、三瓣、一大把`不得擅自改为阿拉伯数字。
-- `locks.formula_items/diseases/syndromes` 的 `locked_text` 不得丢失或改写。
+- 正式新交付使用 `schema_version=3`，由 approved hooks 编译正文硬约束、approved review findings 确定性投影后三段；旧 v2 仅保留兼容读取。
 - 所有医学内容最终须经执业医师终审；模型不负责最终医学判断、原始素材真伪或发布决策。
 - 公开 JSON 与 Word 只含 `filename/items/link/title/script/notes/tips/processing`；`locks/internal_review/manual_checks/validation` 不得进入公开投影。
 - 临时 handoff 放系统临时目录；只清理由本流程创建的临时文件，不删除或覆盖既有用户文件。

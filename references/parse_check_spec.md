@@ -1,107 +1,123 @@
-# 解析与核对规范
+# 解析与核对规范（schema v3）
 
-本文件是第 2 步解析与第 3 步专业核对的权威来源。流程优先级见 `SKILL.md`；洗稿和输出格式不在本文件定义。
+本文件只定义解析、来源、审批和专业核对的内部状态。口播写法见 `rewrite_playbook.md`，公开交付见 `output_format.md`。
 
-## 一、内部阶段契约
+## 一、内部状态
 
-解析完成后内部状态必须处于 `parsed_checked`，并包含：
+解析完成后必须生成 `schema_version=3、stage=parsed_checked`：
 
 ```json
 {
-  "schema_version": "2",
+  "schema_version": "3",
   "stage": "parsed_checked",
-  "source": {"link": "", "title": "", "text": "原文"},
-  "internal_review": {"licensed_physician_review_required": true},
-  "locks": {
-    "formula_items": [],
-    "diseases": [],
-    "syndromes": [],
-    "numeric_hooks": []
+  "source": {"link": "", "title": "原标题", "text": "原文"},
+  "hooks": {
+    "verbatim": [],
+    "semantic_strength": []
   },
-  "diseases": [],
-  "formulas": [],
-  "herbs": [],
-  "acupoints": []
+  "review_findings": [],
+  "title_review": {
+    "decision": "unchanged",
+    "title": "原标题",
+    "reason_codes": [],
+    "rationale": ""
+  },
+  "internal_review": {"licensed_physician_review_required": true}
 }
 ```
 
-`locks` 四个键必须全部存在，即使值为空数组。每个锁定项使用：
+标题只通过 `source.title + title_review` 管理，不再称为普通 lock。
+
+## 二、字面保全 hooks
+
+`hooks.verbatim` 每项结构：
 
 ```json
 {
-  "raw": "薏米10g",
-  "locked_text": "薏苡仁10克",
-  "normalization": ["unit:g→克", "herb_name:薏米→薏苡仁"],
+  "id": "formula-1",
+  "kind": "formula_item",
+  "raw": "荷叶10g",
+  "delivery_text": "荷叶10克",
+  "source_span": [20, 25],
+  "normalization_ops": ["unit:g→克"],
   "provenance": "source_normalized",
-  "requires_approval": true
+  "approval_status": "approved",
+  "safety_disposition": "verbatim"
 }
 ```
 
-允许的 `provenance`：
+`kind`：`formula_item / disease / syndrome / numeric_hook / fixed_phrase`。
 
-- `source_verbatim`：原文直接出现，未改字
-- `source_normalized`：只做已记录的单位或名称规范化
-- `user_required`：用户明确要求进入正文
-- `review_approved`：专业核对新增，且流程已明确批准进入正文
+只有同时满足以下条件的条目才成为正文硬约束：
 
-未经批准的第三步推断不得写进 locks。
+- `approval_status=approved`
+- `safety_disposition=verbatim`
+- 来源或规范化可验证
 
-## 二、解析内容
+安全处置：
 
-从原文识别：
+- `verbatim`：可原样进入正文
+- `demoted`：保留安全语义，不保留危险原句
+- `rejected`：不得进入公开文本
+- `pending`：等待审批，阻断导出
 
-- **病症**：疾病和核心症状。
-- **方剂**：属于同一做法的药材/食材组合及每项份量。
-- **单独药材**：不属于方剂组成部分、需补采摘炮制信息的药材。
-- **穴位**：原文提到的穴位。
-- **数字钩子**：承担流量功能的精确数字，如 `90%`、`九成`、`3块钱`、`72小时`。
+这样医疗安全优先于锁定项：危险内容不会先成为硬锁，再与安全规则死锁。
 
-### 方剂与名称规则
+### 来源规则
 
-- 原文克数、勺、把、片、瓣、小撮等份量不得补编或改量词。
-- 字母单位确定性规范为汉字，如 `10g → 10克`，并在 `normalization` 留痕。
-- 药材俗名可给出标准正名，但不得静默污染原文保全：无歧义且正文应使用正名时，把 raw 和 locked_text 分开；存在歧义时 `requires_approval=true`，未批准前正文仍用 raw。
-- `formula_items` 指每个需保全的完整药材+份量条目，不是整个方剂拼接成的一条长字符串。
-- 只提组合、没有份量时按原始组合保留，可标 `food_combo`，不得补克数。
+- `source_verbatim`：`raw == delivery_text`，且 `source_span` 精确指向原文。
+- `source_normalized`：只做确定性名称或单位规范化，必须记录 `normalization_ops`。
+- `user_required`：用户明确要求，仍需通过医疗安全。
+- `review_approved`：专业核对新增；模型只能生成 pending candidate，不能自行声明审批完成。
 
-### 病症、证型和数字升级规则
+## 三、语义力度 hooks
 
-- `locks.diseases` 只收核心病症，不把所有普通症状都锁死。
-- `locks.syndromes` 只收原文明示、用户要求或经核对后明确批准进入正文的证型。
-- 第三步新推断的证型默认只用于 `tips`，未批准不得升级为正文锁。
-- `numeric_hooks` 只收承担钩子或安全时限作用的数字；普通煎煮时间和剂量已由对应条目保全，不重复锁也可。
+`hooks.semantic_strength` 用于稀缺、情绪、紧迫、身份和反差等只保功能、不保原句的钩子：
 
-## 三、专业核对
+```json
+{
+  "id": "scarcity-1",
+  "kind": "scarcity",
+  "source_text": "很多人花钱都学不到",
+  "source_span": [30, 40],
+  "truth_status": "verified",
+  "safety_disposition": "demoted"
+}
+```
 
-### 3a. 病症
+`kind`：`scarcity / emotion / urgency / identity / contrast`。
 
-输出鉴别诊断、容易混淆的疾病/证型和关键鉴别特征，默认进入 `notes`。
+身份、资历、患者经历、祖传年限和平台下架记录若无来源，必须标为 `unverified + pending/rejected`，不得注入成稿。
 
-### 3b. 方剂
+## 四、专业核对结果
 
-输出：
+所有鉴别、禁忌、使用提醒、炮制和穴位核对写入 `review_findings`：
 
-- 适用人群与辨证要点，除证型外尽量补中老年人能感知的典型表现
-- 禁忌人群
-- 使用注意、服法边界、饮食禁忌和明确可知的相互作用
+```json
+{
+  "id": "finding-1",
+  "kind": "contraindication",
+  "text": "青光眼患者不建议使用。",
+  "target": "tips",
+  "approval_status": "approved",
+  "source": ""
+}
+```
 
-默认进入 `tips`，不挤入口播正文。
+`target` 只能是 `notes / tips / processing`。当前暂停联网时 `source` 为空；把握不准不写。只有 approved finding 才能进入公开投影。
 
-### 3c. 单独药材
+## 五、标题裁决
 
-输出采收时间、产地、炮制和储存，默认进入 `processing`。
+`title_review.decision`：
 
-### 3d. 穴位
+- `unchanged`：标题原样保留
+- `safety_adjusted`：命中明确安全风险后最小修改，填写 `reason_codes/rationale`
+- `blocked_editorial_review`：安全与流量无法兼顾，停止导出交编导裁决
 
-核对标准定位、主治、操作与禁忌，默认分别进入 `notes/tips`。定位优先参考《腧穴名称与定位》国家标准和规划教材，但当前暂停联网时不写无法核实的来源。
+## 六、审批状态
 
-## 四、可靠性与降级
+`pending` 条目不得进入 rewrite 的有效约束，也不得导出。外层流程取得用户、编导或专业审核后才能写入独立审批结果；模型不能把自己的建议直接改成 approved。
 
-当前不联网，基于内置中医/临床通识核对：
+## 七、v2 兼容
 
-- 把握不准时不写或保守写，不伪造链接、文献或出处。
-- 急重病、可能延误正规治疗的内容优先给出精炼就医提醒。
-- 鉴别诊断、完整禁忌、常规治疗和复查提醒默认进入后三段，不把正文改成临床说明书。
-- 当前 `source` 留空。恢复联网须同时恢复检索、来源契约、渲染和测试，不得只启用 `web_lookup.py`。
-
-联网恢复后的来源优先级：国家级权威 > 权威典籍与规划教材 > 三甲医院及正规医学平台；不采信养生号和带货软文。
+正式新输入使用 v3。旧 v2 只通过 `scripts/handoff_contract.py:v2_to_v3()` 显式迁移：能在原文定位且无歧义的条目可批准；纯字符串、`review_approved` 或来源不明内容迁移为 pending，不静默放行。

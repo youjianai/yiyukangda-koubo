@@ -1,58 +1,75 @@
 # 回归测试约定
 
-改规则前先冻结当前工作树基线，改完后同时跑确定性回归和写作质量回归。测试不把 Git `HEAD` 自动视为基线，因为工作树可能含尚未提交但已经过用户确认的规则。
+本项目只声明已经实现的验证能力。规则改动先补确定性失败样例，再改实现；真人口播质量由真实案例人工评审，不伪装成正则或虚假的统计结论。
 
-## 目录与命名
+## 目录
 
 ```
 tests/
   README.md
-  test_regression.py          # 确定性脚本回归，默认执行
-  run_quality_eval.py         # 质量样本采集/盲评打包，不进入默认 unittest
-  baseline/
-    YYYY-MM-DD-current/       # 当前工作树快照元数据；目录名固定日期+current
-      manifest.json
-      prompt_bundle.zip       # 只保存规则/prompt/reference，不含密钥和产物
+  test_regression.py
+  test_v2_regression.py
   fixtures/
-    <case-id>/                # 小写英文、数字和连字符，如 01-foot-soak
-      case.json               # 唯一机器契约
-      input.txt               # 供人工粘贴的原文副本
-      expected_checks.md      # 供编导阅读的语义卡口
-      outputs/                # live runner 生成；按 before/after + trial 编号命名
+    <case-id>/
+      case.json
+      input.txt
+      expected_checks.md
+      failed-output-*.txt     # 完整真实失败稿，可选
+      approved-output.txt     # 已获用户确认的质量基线，可选
+  baseline/
+    <immutable-id>/
+      manifest.json
+      prompt_bundle.zip
 ```
 
-约束：
+## 确定性回归
 
-- 新 case 先写 `case.json`，再补文本和人工说明；标题、链接、原文、locks 都必须有明确来源。
-- `case.json` 只记录输入、机器断言和人工评分维度，不保存密钥、token 或账号信息。
-- `outputs/` 只放模型原始输出和运行元数据；不覆盖已有 trial，重复运行使用下一编号。
-- 临时 DOCX 和 handoff 使用系统临时目录；测试自行创建的临时文件由测试清理，不在桌面或 Skill 目录留产物。
-- baseline 只追加新目录，不覆盖旧基线；如基线无对应 prompt bundle，不得宣称可做 before/after 比较。
-
-## 使用方法
-
-从 Skill 根目录运行，或使用绝对测试路径：
+从 Skill 根目录运行：
 
 ```bash
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-测试分为三层：
+自动测试覆盖：
 
-1. **确定性自动回归**：检查 schema、锁定项、字数、禁用项、引导语选择、导出门禁和 Word 排版，必须 100% 通过。
-2. **结构化 case 断言**：检查 required/forbidden literals、标题裁决、锁项和导出结果；不把语义写作质量伪装成正则。
-3. **人工盲评**：同一运行时、同一输入、同一候选做 before/after 多 trial，对钩子、二创、叙事链、口播感、医学边界和完整度评分。
+1. schema、来源、审批、锁定项和字数。
+2. 高置信医疗安全、禁用标点、证型括注和查重。
+3. 引导语库审核状态、内容类型、插入位置、身份要求和预算。
+4. canonical handoff、公开字段投影、CLI、DOCX 排版与 OOXML 内部字段泄漏。
+5. 批量原子失败、UTF-8 BOM、Windows 文件名和拒绝覆盖。
 
-若某项失败，先判断是确定性脚本 bug、规则冲突，还是写作质量退化，再只改对应层。
+测试数量以实际运行结果为准，不在文档中硬编码。
 
-## 质量发布门槛
+## 结构化 fixture
 
-- 所有确定性回归通过，硬否决事件为 0。
-- 总体配对评分的 95% bootstrap 置信区间下界不低于 -0.15/5。
-- 钩子力度和二创质量两个核心维度下界不低于 -0.20/5。
-- 任一 case 中位数下降超过 0.5 分时必须专项复核。
-- after 最差 20% 样本必须人工复核，排查模板化、安全规则过度软化和核心干货损失。
+- `case.json` 是输入、locks 和机器断言的事实源。
+- `input.txt` 必须与 `case.json.source.text` 一致。
+- `expected_checks.md` 只写人工语义检查，不创设机器规则。
+- 完整失败稿必须保留真实上下文，不能只冻结孤立坏词。
+- approved output 只在用户明确确认后写入，用于防止口播质量回退。
+- 临时 handoff 和 DOCX 全部放 `TemporaryDirectory()`，不在桌面或 Skill 目录留产物。
 
-## 现有人工案例迁移
+## 轻量人工 A/B 评审
 
-原 `case_01_桃树叶泡脚`、`case_02_胆结石` 保留为历史可读材料；结构化契约迁入 `fixtures/` 后，以 `case.json` 为机器事实源。
+当前不使用 LLM judge，也不声称已有 bootstrap 统计平台。选择 6–8 个代表性真实案例，隐藏版本标签后做配对评审：
+
+- 第一遍听是否顺
+- 叙事是否自然向前
+- 钩子力度
+- 引导语是否贴合
+- 核心干货是否完整
+- 医学边界是否安全且不过度说明书化
+
+硬否决项：虚构身份或经历、保证疗效、替代就医、药材剂量/病名/证型丢失、明显机械模板、需要倒回去才能听懂。
+
+每个案例至少两名评审；总体中位数不得下降，任一案例下降超过 1 分时专项复核。样本量不足时不使用 95% bootstrap 置信区间制造统计精确感。
+
+## 项目运行验证
+
+非文档改动完成后执行项目 scoped verify，走公开 `build_docx.py` CLI，检查：
+
+- stdout/stderr 原始 bytes 可 UTF-8 strict decode
+- DOCX 正文与 validated script 一致
+- OOXML 不含 locks、审批记录、warning 决议和 provenance
+- 批量失败不留最终产物
+- 已有同名文件不被覆盖

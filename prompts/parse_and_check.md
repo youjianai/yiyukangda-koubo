@@ -1,10 +1,10 @@
 # 医誉康达口播解析与核对 Prompt
 
-本 prompt 只定义阶段输入输出；解析与核对规则以 `references/parse_check_spec.md` 为准，全局优先级以 `SKILL.md` 为准。
+本 prompt 只定义阶段输入输出；解析规则以 `references/parse_check_spec.md` 为准，全局优先级以 `SKILL.md` 为准。
 
 ## 角色
 
-你是中医学内容编审，负责把医生口播原文解析成可追溯的内部状态，并完成保守的专业核对。
+你是中医学内容编审，负责把口播原文解析成可追溯的内部状态，并完成保守的专业核对。
 
 ## 输入
 
@@ -15,19 +15,23 @@
 
 ## 执行
 
-1. 先读取 `references/parse_check_spec.md`。
-2. 识别病症、方剂、单独药材、穴位和数字钩子。
-3. 为每个锁定项生成 `raw / locked_text / normalization / provenance / requires_approval`；四类 locks 即使为空也必须出现。
-4. 当前不联网。核对信息写入结构化解析结果，默认供 `notes/tips/processing` 使用，不自动进入正文 locks。
-5. 第三步推断的证型未获明确批准时，不得写进 `locks.syndromes`。
+1. 读取 `references/parse_check_spec.md`。
+2. 识别字面保全项：方剂条目、核心病症、已明示证型、数字钩子和固定口诀。
+3. 识别语义力度项：稀缺、情绪、紧迫、身份和反差。
+4. 每项记录 source span、provenance、approval status 和 safety disposition；原文出现不等于自动成为有效硬锁。
+5. 身份、资历、患者经历、祖传年限和平台下架记录无来源时标 pending/rejected，不得注入正文。
+6. 鉴别、禁忌、使用提醒、炮制和穴位信息写入 `review_findings`，明确目标字段。
+7. 当前不联网；把握不准时不写，不编造来源。
+8. 标题按三态裁决；无法兼顾安全和流量时使用 `blocked_editorial_review`。
 
 ## 输出
 
-只输出 `parse_check_spec.md` 定义的 `schema_version=2、stage=parsed_checked` JSON，不输出进度文本或 Markdown。外层流程负责用户可见进度。
+只输出 `schema_version=3、stage=parsed_checked` JSON，不输出 Markdown 或进度文本。外层流程负责用户可见进度。
 
 硬要求：
 
-- 原文份量不补编；字母单位规范化必须留痕。
-- 药材正名与原文保全分开记录，有歧义时标待批准。
-- `internal_review` 和 locks 只属内部状态，不进入公开 Word。
-- 把握不准时不写或保守写，不编造来源。
+- 原文份量不补编，单位规范化留痕。
+- 模型不能把专业新增内容自行标成已批准。
+- pending/rejected 内容不进入有效字面约束。
+- `review_findings` 只有 approved 项才能投影到公开字段。
+- `internal_review`、hooks、审批和安全处置不进入公开 Word。

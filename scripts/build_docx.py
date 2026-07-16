@@ -14,7 +14,10 @@ from docx.shared import Pt
 HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
-from validate_output import validate_text
+from handoff_contract import (
+    approved_findings_projection, compile_locks, validate_v3_handoff_shape,
+)
+from validate_output import find_medical_safety, validate_text
 
 BODY_FONT = "宋体"
 BODY_SIZE = 10.5
@@ -33,7 +36,7 @@ MANUAL_CHECK_KEYS = {
 PUBLIC_TOP_KEYS = {"filename", "items"}
 PUBLIC_ITEM_KEYS = {"link", "title", "script", "notes", "tips", "processing"}
 ENTRY_KEYS = {"text", "source"}
-WARNING_STATUSES = {"resolved", "false_positive", "accepted_with_reason"}
+WARNING_STATUSES = {"false_positive", "accepted_with_reason"}
 FORBIDDEN_PUBLIC_PHRASES = (
     "以上为通用知识，请执业医师复核", "review_note",
     "licensed_physician_review_required",
@@ -128,7 +131,70 @@ def _warning_decision(decisions, issue_id):
     return None, ""
 
 
+def _validate_public_medical_safety(public, path):
+    title_issues = find_medical_safety(public["title"], path + ".title")
+    if title_issues:
+        raise ValueError("%s 标题医疗安全校验失败：%s" % (path, "；".join(x["message"] for x in title_issues)))
+    for key in SECTION_ORDER:
+        _validate_entries(public[key], path + "." + key)
+        for entry_index, entry in enumerate(public[key]):
+            issues = find_medical_safety(entry["text"], "%s.%s[%d].text" % (path, key, entry_index))
+            if issues:
+                raise ValueError("%s %s 医疗安全校验失败：%s" % (
+                    path, key, "；".join(x["message"] for x in issues),
+                ))
+
+
+def _validate_warnings(decisions, report, path):
+    for warning in report["warnings"]:
+        status, reason = _warning_decision(decisions, warning["id"])
+        if status not in WARNING_STATUSES:
+            raise ValueError("%s warning [%s] 未处置或状态无效" % (path, warning["id"]))
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError("%s warning [%s] 必须填写理由" % (path, warning["id"]))
+    unknown = sorted(set(decisions) - {x["id"] for x in report["warnings"]})
+    if unknown:
+        raise ValueError("%s warning_decisions 含未知或已过期项：%s" % (path, ",".join(unknown)))
+
+
+def validate_v3_handoff(data):
+    """Validate v3 rewritten handoff and compile only approved constraints/findings."""
+    validate_v3_handoff_shape(data)
+    public_items = []
+    reports = []
+    for index, item in enumerate(data["items"]):
+        path = "items[%d]" % index
+        public = item["public"]
+        _exact_keys(public, PUBLIC_ITEM_KEYS, path + ".public")
+        if public["link"] != item["source"]["link"]:
+            raise ValueError(path + " public.link 必须与 source.link 一致")
+        findings = approved_findings_projection(item["review_findings"])
+        for key in SECTION_ORDER:
+            if public[key] != findings[key]:
+                raise ValueError("%s public.%s 必须由 approved review_findings 确定性投影" % (path, key))
+        _validate_public_medical_safety(public, path + ".public")
+        locks = compile_locks(item["hooks"])
+        report = validate_text(public["script"], locks, item["source"]["text"])
+        if report["errors"]:
+            raise ValueError("%s 正文校验失败：%s" % (path, "；".join(x["message"] for x in report["errors"])))
+        _validate_warnings(item["warning_decisions"], report, path)
+        public_items.append(public)
+        reports.append(report)
+    public_data = {"filename": data["filename"], "items": public_items}
+    validate_public_input(public_data)
+    return public_data, reports
+
+
 def validate_handoff(data):
+    version = data.get("schema_version") if isinstance(data, dict) else None
+    if version == "3":
+        return validate_v3_handoff(data)
+    if version != "2":
+        raise ValueError("schema_version 必须为 2 或 3")
+    return validate_v2_handoff(data)
+
+
+def validate_v2_handoff(data):
     _exact_keys(data, HANDOFF_KEYS, "handoff")
     if data["schema_version"] != "2":
         raise ValueError("schema_version 必须为 2")
@@ -173,12 +239,26 @@ def validate_handoff(data):
         public_title = _string(public["title"], path + ".public.title")
         if decision_type == "unchanged" and public_title != source_title:
             raise ValueError(path + " 标题声明 unchanged，但 public.title 与 source.title 不一致")
-        if decision_type == "safety_adjusted" and not rationale.strip():
-            raise ValueError(path + " safety_adjusted 必须填写 rationale")
+        if decision_type == "safety_adjusted":
+            if not rationale.strip():
+                raise ValueError(path + " safety_adjusted 必须填写 rationale")
+            if public_title == source_title:
+                raise ValueError(path + " safety_adjusted 必须修改标题")
+        title_issues = find_medical_safety(public_title, path + ".public.title")
+        if title_issues:
+            raise ValueError("%s 标题医疗安全校验失败：%s" % (path, "；".join(x["message"] for x in title_issues)))
         if public["link"] != source["link"]:
             raise ValueError(path + " public.link 必须与 source.link 一致")
         for key in SECTION_ORDER:
             _validate_entries(public[key], path + ".public." + key)
+            for entry_index, entry in enumerate(public[key]):
+                section_issues = find_medical_safety(
+                    entry["text"], "%s.public.%s[%d].text" % (path, key, entry_index)
+                )
+                if section_issues:
+                    raise ValueError("%s %s 医疗安全校验失败：%s" % (
+                        path, key, "；".join(x["message"] for x in section_issues),
+                    ))
 
         report = validate_text(public["script"], item["locks"], source_text)
         if report["errors"]:
@@ -186,9 +266,12 @@ def validate_handoff(data):
         for warning in report["warnings"]:
             status, reason = _warning_decision(item["warning_decisions"], warning["id"])
             if status not in WARNING_STATUSES:
-                raise ValueError("%s warning [%s] 未处置" % (path, warning["id"]))
-            if status in {"false_positive", "accepted_with_reason"} and not isinstance(reason, str) or status in {"false_positive", "accepted_with_reason"} and not reason.strip():
+                raise ValueError("%s warning [%s] 未处置或状态无效" % (path, warning["id"]))
+            if not isinstance(reason, str) or not reason.strip():
                 raise ValueError("%s warning [%s] 必须填写理由" % (path, warning["id"]))
+        unknown_decisions = sorted(set(item["warning_decisions"]) - {x["id"] for x in report["warnings"]})
+        if unknown_decisions:
+            raise ValueError("%s warning_decisions 含未知或已过期项：%s" % (path, ",".join(unknown_decisions)))
 
         public_items.append(public)
         reports.append(report)
@@ -202,13 +285,17 @@ def safe_filename(value):
     filename = _string(value, "filename")
     if filename.lower().endswith(".docx"):
         filename = filename[:-5]
-    if filename in {".", ".."} or ".." in filename or "/" in filename or "\\" in filename:
+    if filename in {".", ".."} or "/" in filename or "\\" in filename:
         raise ValueError("filename 必须是安全 basename，不能含路径")
     if re.search(r'[<>:"/\\|?*\x00-\x1f]', filename) or filename.endswith((" ", ".")):
         raise ValueError("filename 含 Windows 非法字符")
-    if filename.upper() in WINDOWS_RESERVED:
+    device_stem = filename.split(".", 1)[0].rstrip(" .").upper()
+    if device_stem in WINDOWS_RESERVED:
         raise ValueError("filename 是 Windows 保留名")
-    return filename + ".docx"
+    final_name = filename + ".docx"
+    if len(final_name) > 240:
+        raise ValueError("filename 过长")
+    return final_name
 
 
 def set_cjk_font(run, name=BODY_FONT):
@@ -250,7 +337,13 @@ def add_separator(doc):
 
 
 def split_script(script):
-    return [line.strip() for line in script.split("\n") if line.strip()]
+    lines = script.split("\n")
+    if any(line != line.strip() for line in lines):
+        raise ValueError("正文每行不得含首尾空白")
+    paragraphs = [line for line in lines if line]
+    if not paragraphs:
+        raise ValueError("正文不能为空")
+    return paragraphs
 
 
 def split_tips(text):
@@ -312,9 +405,14 @@ def build(data, output_dir):
         with tempfile.NamedTemporaryFile(prefix="yiyukangda-", suffix=".docx", dir=output_root, delete=False) as handle:
             temp_path = Path(handle.name)
         doc.save(temp_path)
-        if output_path.exists():
+        # 原子发布且目标必须不存在；避免 exists()+replace 的并发覆盖窗口。
+        try:
+            os.link(temp_path, output_path)
+        except FileExistsError:
             raise FileExistsError("输出文件在生成期间出现，拒绝覆盖：%s" % output_path)
-        os.replace(temp_path, output_path)
+        except OSError as exc:
+            raise OSError("当前文件系统不支持安全无覆盖发布：%s" % exc)
+        temp_path.unlink()
         temp_path = None
     finally:
         if temp_path and temp_path.exists():
@@ -327,10 +425,10 @@ def main():
         raise SystemExit("用法：python build_docx.py <canonical-handoff.json> [output_dir]")
     input_path = Path(sys.argv[1])
     output_dir = sys.argv[2] if len(sys.argv) > 2 else str(Path.home() / "Desktop")
-    data = json.loads(input_path.read_text(encoding="utf-8"))
     try:
+        data = json.loads(input_path.read_text(encoding="utf-8-sig"))
         output_path, count, _reports = build(data, output_dir)
-    except (ValueError, FileExistsError) as exc:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError, FileExistsError) as exc:
         raise SystemExit("导出失败：%s" % exc)
     print("已校验并生成 %d 条 → %s" % (count, output_path))
 

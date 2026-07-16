@@ -16,6 +16,8 @@ LONG_MIN = 95
 NEAR_MIN_POOL = 12
 DEFAULT_COUNT = 3
 VALID_STATUS = {"approved", "quarantined"}
+VALID_CONTENT_TYPES = {"general_health", "formula", "acupoint", "kitchen_tip"}
+VALID_PLACEMENTS = {"pre_content", "closing"}
 _NORM_RE = re.compile(r"[\W_]+", re.UNICODE)
 _BENEFIT_BOUND = (
     "省钱", "少遭罪", "长高", "省下", "少花钱", "不花冤枉钱",
@@ -48,22 +50,14 @@ def infer_risk_tags(text):
 def parse_entry(entry, index):
     """兼容旧字符串；正式库对象执行严格 schema 校验。"""
     if isinstance(entry, str):
-        text = entry.strip()
-        if not text:
-            raise LibraryError("第%d条是空字符串" % index)
-        risks = infer_risk_tags(text)
-        return {
-            "id": "legacy-%03d" % index,
-            "text": text,
-            "status": "quarantined" if risks else "approved",
-            "universal": infer_universal(text),
-            "risk_tags": risks,
-            "char_count": len(text),
-        }
+        raise LibraryError("第%d条仍是旧字符串格式，请先迁移库数据" % index)
     if not isinstance(entry, dict):
-        raise LibraryError("第%d条必须是字符串或对象" % index)
+        raise LibraryError("第%d条必须是对象" % index)
 
-    required = {"id", "text", "status", "universal", "risk_tags", "char_count"}
+    required = {
+        "id", "text", "review_status", "content_types", "placement",
+        "persona_requirements", "risk_tags", "char_count",
+    }
     missing = sorted(required - set(entry))
     unknown = sorted(set(entry) - required)
     if missing:
@@ -73,8 +67,10 @@ def parse_entry(entry, index):
 
     item_id = entry["id"]
     text = entry["text"]
-    status = entry["status"]
-    universal = entry["universal"]
+    status = entry["review_status"]
+    content_types = entry["content_types"]
+    placement = entry["placement"]
+    persona_requirements = entry["persona_requirements"]
     risk_tags = entry["risk_tags"]
     char_count = entry["char_count"]
     if not isinstance(item_id, str) or not item_id.strip():
@@ -82,9 +78,15 @@ def parse_entry(entry, index):
     if not isinstance(text, str) or not text.strip():
         raise LibraryError("第%d条 text 必须是非空字符串" % index)
     if status not in VALID_STATUS:
-        raise LibraryError("第%d条 status 必须是 approved/quarantined" % index)
-    if not isinstance(universal, bool):
-        raise LibraryError("第%d条 universal 必须是布尔值" % index)
+        raise LibraryError("第%d条 review_status 必须是 approved/quarantined" % index)
+    if not isinstance(content_types, list) or not content_types or not all(x in VALID_CONTENT_TYPES for x in content_types):
+        raise LibraryError("第%d条 content_types 无效" % index)
+    if len(content_types) != len(set(content_types)):
+        raise LibraryError("第%d条 content_types 含重复值" % index)
+    if placement not in VALID_PLACEMENTS:
+        raise LibraryError("第%d条 placement 无效" % index)
+    if not isinstance(persona_requirements, list) or not all(isinstance(x, str) and x for x in persona_requirements):
+        raise LibraryError("第%d条 persona_requirements 必须是字符串数组" % index)
     if not isinstance(risk_tags, list) or not all(isinstance(x, str) and x for x in risk_tags):
         raise LibraryError("第%d条 risk_tags 必须是字符串数组" % index)
     if not isinstance(char_count, int) or char_count != len(text.strip()):
@@ -92,8 +94,12 @@ def parse_entry(entry, index):
     return {
         "id": item_id.strip(),
         "text": text.strip(),
+        "review_status": status,
         "status": status,
-        "universal": universal,
+        "content_types": list(content_types),
+        "placement": placement,
+        "persona_requirements": list(persona_requirements),
+        "universal": set(content_types) == VALID_CONTENT_TYPES,
         "risk_tags": risk_tags,
         "char_count": char_count,
     }
@@ -177,8 +183,10 @@ def main():
     except Exception:
         pass
 
-    parser = argparse.ArgumentParser(description="从已审核引导语库选择候选（每行一条）")
-    parser.add_argument("--mode", choices=["short", "long", "any"], default="any")
+    parser = argparse.ArgumentParser(description="从已审核引导语库选择候选")
+    parser.add_argument("--mode", choices=["short", "long", "any"], default="any", help="兼容旧调用；预算仍由 --max-chars 硬限制")
+    parser.add_argument("--content-type", choices=sorted(VALID_CONTENT_TYPES), default="general_health")
+    parser.add_argument("--placement", choices=sorted(VALID_PLACEMENTS), default="pre_content")
     parser.add_argument("--count", type=int, default=DEFAULT_COUNT)
     parser.add_argument("--seed", type=int, default=None, help="固定随机种子，回归测试必须传")
     parser.add_argument("--max-chars", type=int, default=None, help="候选最大字数，按正文剩余预算传入")
@@ -202,19 +210,25 @@ def main():
             print("%s\t%s\t%.3f" % (left, right, score))
         return
 
-    approved = [x for x in all_items if x["status"] == "approved"]
+    approved = [
+        x for x in all_items
+        if x["review_status"] == "approved"
+        and args.content_type in x["content_types"]
+        and x["placement"] == args.placement
+        and not x["persona_requirements"]
+    ]
     if args.max_chars is not None:
         approved = [x for x in approved if x["char_count"] <= args.max_chars]
     pool = filter_by_mode(approved, args.mode)
     if len(pool) < args.count:
         sys.stderr.write(
-            "合规候选不足：需要%d条，当前只有%d条。请扩大字数预算或补充已审核候选。\n"
+            "合规候选不足：需要%d条，当前只有%d条。请调整字数预算、内容类型或插入位置。\n"
             % (args.count, len(pool))
         )
         sys.exit(4)
 
     for item in pick(pool, args.count, args.seed):
-        print(item["text"])
+        print(json.dumps({"id": item["id"], "text": item["text"]}, ensure_ascii=False))
 
 
 if __name__ == "__main__":

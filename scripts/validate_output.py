@@ -16,7 +16,10 @@ except ImportError:
 MAX_CHARS = 300
 FORBIDDEN_PUNCT = {
     "：": "冒号须改为逗号或断句",
+    ":": "冒号须改为逗号或断句",
     "——": "破折号须改为逗号或句号",
+    "—": "破折号须改为逗号或句号",
+    "–": "破折号须改为逗号或句号",
     "“": "中文双引号须改为书名号式单引号或删除",
     "”": "中文双引号须改为书名号式单引号或删除",
     '"': "英文双引号须改为中文单引号或删除",
@@ -31,6 +34,15 @@ POPSCI_BRIDGE = ("常会用到", "临床上常用", "一般会用", "顺着这�
 CURE_PROMISE = ("根治", "断根", "越喝越好", "越喝肝越好", "100%治好", "百分百治好", "包治", "药到病除")
 SELF_TREATMENT = ("小毛病自己就能调", "小毛病，咱不求人", "不用治疗", "不用看医生", "回去试一试")
 ATTACK_PEERS = ("药店就要干不下去", "药店都要干不下去", "卖高价暴利产品")
+_STRONG_OUTCOME_RE = re.compile(
+    r"(?:保证|确保|一定|必然)(?:以后)?.{0,8}(?:治好|治愈|不会复发|不复发|恢复|降下来|有效)"
+    r"|(?:能|可以).{0,4}(?:治疗|治好|治愈|逆转|消除)(?:脂肪肝|乙肝|高血压|糖尿病|肿瘤|癌症|这个病|疾病)?"
+)
+_SKIP_CARE_RE = re.compile(
+    r"(?:不用|无需|别)(?:再)?(?:去)?(?:医院|看医生|就医|治疗|手术)"
+    r"|(?:在家|自己在家|自己).{0,4}(?:治|治疗|调理好)"
+)
+_NEGATION_PREFIX_RE = re.compile(r"(?:不|不能|不可|不要|并非|不是|无法|不代表|不保证|从不保证)$")
 EFFICACY_VERB_RE = re.compile(r"能(祛|补|降|清|润|养|活|通|止|安|健|利)(?!.{0,1}(帮助|有助于))")
 BUY_NOT_RE = re.compile(r"(?<!难)买不到")
 COND_ABSOLUTE_RE = re.compile(r"只要(?!.{0,20}就)")
@@ -94,6 +106,40 @@ def _issue(issue_id, message, context=None):
     return issue
 
 
+def _is_negated(text, start):
+    """识别紧邻高风险断言或元语言引用的安全否定，避免误判风险提示。"""
+    prefix = (text or "")[max(0, start - 8):start]
+    if _NEGATION_PREFIX_RE.search(prefix):
+        return True
+    sentence_start = max((text or "").rfind(mark, 0, start) for mark in "。！？；\n") + 1
+    sentence_prefix = (text or "")[sentence_start:start]
+    return any(marker in sentence_prefix for marker in ("不要写", "不能写", "不可写", "不应写"))
+
+
+def find_medical_safety(text, field_path="script"):
+    """返回公开文本中的高置信医疗安全问题。"""
+    issues = []
+    text = text or ""
+    seen = set()
+    for pattern, issue_id, label in (
+        (_STRONG_OUTCOME_RE, "medical-guarantee", "疗效或结果保证"),
+        (_SKIP_CARE_RE, "skip-care", "替代就医或自行治疗"),
+    ):
+        for match in pattern.finditer(text):
+            if _is_negated(text, match.start()):
+                continue
+            key = (issue_id, match.start(), match.end())
+            if key in seen:
+                continue
+            seen.add(key)
+            issues.append(_issue(
+                issue_id,
+                "%s.%s「%s」" % (field_path, label, match.group(0)),
+                match.group(0),
+            ))
+    return issues
+
+
 def lock_texts(lock_values):
     texts = []
     for index, value in enumerate(lock_values or []):
@@ -112,27 +158,57 @@ def lock_texts(lock_values):
     return texts
 
 
+def _formula_lock_present(text, value):
+    """避免用更长药材名中的子串冒充完整方剂项，如薄荷叶10克≠荷叶10克。"""
+    allowed_prefix = set(" ，。；、\n\t用取备有放加把是需以味份各用到")
+    start = 0
+    while True:
+        index = text.find(value, start)
+        if index < 0:
+            return False
+        if index == 0 or text[index - 1] in allowed_prefix:
+            return True
+        start = index + 1
+
+
 def find_copied_phrases(source_text, output_text, locked, width=10):
     source = _COPY_NORM_RE.sub("", source_text or "")
     output = _COPY_NORM_RE.sub("", output_text or "")
     exemptions = sorted(
-        (_COPY_NORM_RE.sub("", text) for text in locked),
+        {_COPY_NORM_RE.sub("", text) for text in locked if text},
         key=len,
         reverse=True,
     )
-    for exemption in exemptions:
-        if exemption:
-            source = source.replace(exemption, "|")
-            output = output.replace(exemption, "|")
-    output_segments = [segment for segment in output.split("|") if segment]
+
+    def coverage(text):
+        covered = [False] * len(text)
+        for exemption in exemptions:
+            start = 0
+            while exemption:
+                index = text.find(exemption, start)
+                if index < 0:
+                    break
+                for pos in range(index, index + len(exemption)):
+                    covered[pos] = True
+                start = index + 1
+        return covered
+
+    source_covered = coverage(source)
+    output_covered = coverage(output)
     hits = []
     seen = set()
-    for segment in source.split("|"):
-        for index in range(max(0, len(segment) - width + 1)):
-            phrase = segment[index:index + width]
-            if phrase not in seen and any(phrase in candidate for candidate in output_segments):
-                seen.add(phrase)
-                hits.append(phrase)
+    for index in range(max(0, len(source) - width + 1)):
+        phrase = source[index:index + width]
+        if phrase in seen:
+            continue
+        source_fully_locked = all(source_covered[index:index + width])
+        output_index = output.find(phrase)
+        output_fully_locked = (
+            output_index >= 0 and all(output_covered[output_index:output_index + width])
+        )
+        if output_index >= 0 and not (source_fully_locked and output_fully_locked):
+            seen.add(phrase)
+            hits.append(phrase)
     return hits
 
 
@@ -209,6 +285,14 @@ def validate_syndrome_annotations(text, syndrome_locks):
             "invalid-syndrome-annotation",
             "非标准或未批准辨证括注「%s」；括号内只能放已批准证型并使用中文圆括号" % raw,
         ))
+    # 所有辨证 marker 都必须恰好属于一个获批的标准括注，不能在括注外夹带新证型。
+    annotation_spans = [match.span() for match in _PAREN_CONTENT_RE.finditer(text) if _SYNDROME_MARKER_RE.search(match.group(0))]
+    for marker in _SYNDROME_MARKER_RE.finditer(text):
+        if not any(start <= marker.start() and marker.end() <= end for start, end in annotation_spans):
+            issues.append(_issue(
+                "invalid-syndrome-annotation",
+                "辨证 marker「%s」位于标准括注外" % marker.group(0),
+            ))
     return issues
 
 
@@ -256,6 +340,7 @@ def validate_text(text, locks=None, source_text=""):
         errors.append(_issue("outcome-guarantee", "不可控结果保证「%s」" % match.group(0)))
     for match in ABSOLUTE_CAUSATION_RE.finditer(text):
         errors.append(_issue("absolute-causation", "医学归因过于绝对「%s」" % match.group(0)))
+    errors.extend(find_medical_safety(text, "script"))
     errors.extend(find_editorial_tone(text))
 
     today_hits = _TODAY_PREVIEW_RE.findall(text or "")
@@ -279,7 +364,11 @@ def validate_text(text, locks=None, source_text=""):
             syndrome_locks = values
             continue
         for value in values:
-            if value not in text:
+            if key == "formula_items":
+                present = _formula_lock_present(text, value)
+            else:
+                present = value in text
+            if not present:
                 errors.append(_issue("missing-lock", "%s「%s」未在正文中原样出现" % (label, value)))
     errors.extend(validate_syndrome_annotations(text, syndrome_locks))
 

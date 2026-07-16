@@ -9,7 +9,7 @@ description: 通过公开 CLI 验证 canonical handoff 到 DOCX 的运行时行�
 
 ## 主路径
 
-1. 写入完整 `schema_version=2`、`stage=rewritten` canonical handoff JSON。
+1. 写入完整 `schema_version=3`、`stage=rewritten` canonical handoff JSON；另跑一条 v2 兼容探针。
 2. 用 subprocess 调用公开入口：
    `python scripts/build_docx.py <handoff.json> <temp-output-dir>`
 3. 对 stdout/stderr 原始 bytes 执行 UTF-8 strict decode。

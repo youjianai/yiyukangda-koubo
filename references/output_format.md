@@ -1,34 +1,31 @@
-# 输出与交付契约
+# 输出与交付契约（schema v3）
 
-本文件是第 5 步 canonical handoff、公开字段投影和 DOCX 映射的权威来源。洗稿写法不在本文件定义。
+本文件只定义 rewritten handoff、公开投影和 DOCX 映射。解析内部状态见 `parse_check_spec.md`，写法见 `rewrite_playbook.md`。
 
-## 一、canonical handoff
+## 一、正式 rewritten handoff
 
-正式导出输入必须是 UTF-8 JSON：
+新流程使用 `schema_version=3`：
 
 ```json
 {
-  "schema_version": "2",
+  "schema_version": "3",
   "stage": "rewritten",
-  "filename": "脂肪肝-洗稿文档",
+  "filename": "眼睛模糊-洗稿文档",
   "items": [
     {
-      "source": {
-        "link": "https://...",
+      "source": {"link": "", "title": "原标题", "text": "原文"},
+      "hooks": {
+        "verbatim": [],
+        "semantic_strength": []
+      },
+      "review_findings": [],
+      "title_review": {
+        "decision": "unchanged",
         "title": "原标题",
-        "text": "原口播文案"
-      },
-      "locks": {
-        "formula_items": [{"raw": "荷叶10g", "locked_text": "荷叶10克", "normalization": ["unit:g→克"], "provenance": "source_normalized", "requires_approval": false}],
-        "diseases": [{"raw": "脂肪肝", "locked_text": "脂肪肝", "normalization": [], "provenance": "source_verbatim", "requires_approval": false}],
-        "syndromes": [],
-        "numeric_hooks": []
-      },
-      "title_decision": {
-        "type": "unchanged",
+        "reason_codes": [],
         "rationale": ""
       },
-      "manual_checks": {
+      "review_record": {
         "narrative_chain": true,
         "hook_and_title": true,
         "rewrite_quality": true,
@@ -39,12 +36,12 @@
       },
       "warning_decisions": {},
       "public": {
-        "link": "https://...",
+        "link": "",
         "title": "原标题",
         "script": "洗稿后的口播正文",
-        "notes": [{"text": "鉴别诊断或穴位定位"}],
-        "tips": [{"text": "适用人群、禁忌人群和注意"}],
-        "processing": [{"text": "采摘与炮制"}]
+        "notes": [],
+        "tips": [],
+        "processing": []
       }
     }
   ]
@@ -53,24 +50,29 @@
 
 契约：
 
-- `stage` 必须为 `rewritten`；`validated/exported` 只能由脚本产生，不由模型预填。
-- `source`、四类 locks、7 个人工卡口和 `public` 必须存在；空 locks 用 `[]`，不能省略。
-- lock 可用上述对象；旧数据中的纯字符串仅作为迁移兼容，等价于 `locked_text=该字符串`。
-- `title_decision.type` 只能为 `unchanged` 或 `safety_adjusted`。前者要求 `public.title == source.title`；后者必须有非空 rationale，且只允许按 `SKILL.md` 做最小安全修改。
-- `warning_decisions` 的键是 validator warning ID；值为 `resolved / false_positive / accepted_with_reason` 和非空理由。未处置 warning 阻断导出。
-- `public` 不得含 `locks/internal_review/manual_checks/validation/source/title_decision/warning_decisions`。
-- 字段职责是正式 handoff 门禁：`script` 只放口播内容，不得含防御性审稿腔或标准括注之外的额外辨证前提；`notes` 放鉴别诊断、非唯一病因等补充；`tips` 放完整适用/禁忌、辨证与使用边界；`processing` 只放采摘、炮制和储存。具体写法与急重病正文例外以 `rewrite_playbook.md` 为准。
+- `stage` 必须为 `rewritten`；`validated/exported` 是脚本运行结果，不由模型预填。
+- `source/hooks/review_findings/title_review/review_record/warning_decisions/public` 必须存在，未知字段拒绝。
+- 只有 `approval_status=approved + safety_disposition=verbatim` 的 hooks 会编译为正文硬约束。
+- pending hook 不成为硬约束；pending review finding 阻断导出。
+- `public.notes/tips/processing` 必须与 approved review findings 的确定性投影完全一致，模型不得另写一份不同内容。
+- `title_review` 只允许 `unchanged / safety_adjusted / blocked_editorial_review`；blocked 状态不能导出。
+- `review_record` 是流程证明，不等于机器自动证明写作质量；任何 false 都阻断。
+- warning 必须基于当前正文复检；仍存在的 warning 只允许有理由的 `false_positive` 或 `accepted_with_reason`，不接受裸 `resolved`。
 
-## 二、公开投影
+## 二、v2 兼容
 
-脚本从 canonical handoff 确定性投影为：
+`scripts/build_docx.py` 暂时继续读取旧 `schema_version=2` rewritten handoff，供已有调用方迁移。新 prompt 和新流程不得再生成 v2。v2 的字符串 locks、自由审批和旧 warning 语义不进入 v3。
+
+## 三、公开投影
+
+脚本从 v3 handoff 确定性投影为：
 
 ```json
 {
-  "filename": "脂肪肝-洗稿文档",
+  "filename": "眼睛模糊-洗稿文档",
   "items": [
     {
-      "link": "https://...",
+      "link": "",
       "title": "标题",
       "script": "口播正文",
       "notes": [],
@@ -81,41 +83,28 @@
 }
 ```
 
-严格白名单：
+顶层只允许 `filename/items`；item 只允许 `link/title/script/notes/tips/processing`；后三段 entry 只允许 `text/source`。hooks、审批、review record、warning decisions 和 provenance 不进入公开 Word。
 
-- 顶层只允许 `filename/items`。
-- item 只允许 `link/title/script/notes/tips/processing`。
-- 后三段 entry 只允许 `text/source`；当前暂停联网时 `source` 应为空或省略。
-- 未知字段和内部字段一律拒绝，不做“忽略后继续”。
+## 四、正文与规范化
 
-## 三、正文与数字
+- 正文 ≤300 字，用自然段换行，不写 Markdown 小标题。
+- 禁用标点和单位以 `validate_output.py` 为机器事实源。
+- 输入只允许确定性的换行规范化；正文每行首尾空白直接拒绝，不在渲染阶段静默删除。
+- validator 校验的 `public.script` 由 DOCX 渲染器原样按换行拆段，不再生成另一份字符串。
 
-- 正文用自然段换行，不写 Markdown 标题或小标题。
-- 正文 ≤300 字，无禁用标点、字母单位和 `【】`。
-- 不执行“所有数字全局转阿拉伯数字”。标题、数字钩子、剂量、时间和原始份量词按锁定表达保留；`五片、三瓣、一大把`不得改成 `5片、3瓣、1大把`。
-- `notes/tips/processing` 不得包含复核免责声明。
+## 五、Word 排版
 
-## 四、Word 排版
+输出顺序：视频链接、标题、正文自然段、notes、tips、processing。后三段用 `【】` 包裹；tips 按“禁忌人群”拆块。单篇不加序号，多篇加「第N条」和浅灰分隔线。正文宋体五号 10.5pt。
 
-输出顺序：
-
-1. 视频链接，粗体标签与内容同行
-2. 标题，标签和标题内容粗体
-3. 口播正文，自然段分行，无正文小标题
-4. `notes`
-5. `tips`
-6. `processing`
-
-后三段每块用 `【】` 包裹，不加粗小标题；空段跳过。`tips` 按“禁忌人群”拆为适用人群一块、禁忌人群+注意一块。单篇不加序号；多篇加「第N条」并用浅灰细横线分隔。正文宋体五号 10.5pt。
-
-## 五、导出
-
-将 handoff 放系统临时目录，在 Skill 根目录运行：
+## 六、导出
 
 ```bash
-python scripts/build_docx.py <handoff.json路径> [输出目录]
+python scripts/build_docx.py <handoff.json> [output_dir]
 ```
 
-脚本读取一次 handoff，对每个 `public.script` 做 preflight，再用同一字符串渲染。批量任一项失败则不创建最终 DOCX。filename 必须是安全 basename，不得包含绝对路径、`..`、目录分隔符或 Windows 保留名。
-
-流程只删除自己创建的临时 handoff；不得删除或覆盖既有用户文件。默认输出到桌面，测试必须显式传临时输出目录。
+- UTF-8 和 UTF-8 BOM JSON 均可读取。
+- handoff 只读取一次，先完整校验，再渲染同一公开投影。
+- 批量任一项失败不创建最终文件。
+- 最终发布使用原子 no-clobber；同名文件已存在或生成期间出现时拒绝覆盖。
+- filename 必须是安全 basename，拒绝路径、Windows 设备名和过长名称。
+- 临时 handoff 与 DOCX 使用系统临时目录；不删除或覆盖用户文件。

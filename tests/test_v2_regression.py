@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 from docx import Document
@@ -26,6 +27,7 @@ count_chars = load_module("count_chars_v2", SCRIPTS / "count_chars.py")
 pick_guidance = load_module("pick_guidance_v2", SCRIPTS / "pick_guidance.py")
 validate_output = load_module("validate_output_v2", SCRIPTS / "validate_output.py")
 build_docx = load_module("build_docx_v2", SCRIPTS / "build_docx.py")
+handoff_contract = load_module("handoff_contract_v3", SCRIPTS / "handoff_contract.py")
 
 
 def lock(raw, locked_text=None, normalization=None, provenance="source_verbatim"):
@@ -67,6 +69,112 @@ def valid_item(script=None, source_text=None):
 
 def valid_handoff(items=None, filename="腰腿疼痛-洗稿文档"):
     return {"schema_version": "2", "stage": "rewritten", "filename": filename, "items": items or [valid_item()]}
+
+
+class HandoffContractV3Tests(unittest.TestCase):
+    def test_v2_migration_preserves_source_backed_locks(self):
+        old = {
+            "schema_version": "2",
+            "stage": "parsed_checked",
+            "source": {"link": "", "title": "测试标题", "text": "方中用荷叶10g，辨证为湿热。"},
+            "internal_review": {"licensed_physician_review_required": True},
+            "locks": {
+                "formula_items": [{
+                    "raw": "荷叶10g", "locked_text": "荷叶10克",
+                    "normalization": ["unit:g→克"], "provenance": "source_normalized",
+                    "requires_approval": False,
+                }],
+                "diseases": [], "syndromes": [], "numeric_hooks": [],
+            },
+        }
+        migrated = handoff_contract.v2_to_v3(old)
+        hook = migrated["hooks"]["verbatim"][0]
+        self.assertEqual("approved", hook["approval_status"])
+        self.assertEqual("verbatim", hook["safety_disposition"])
+        self.assertEqual("荷叶10克", hook["delivery_text"])
+
+    def test_v2_ambiguous_or_review_approved_locks_become_pending(self):
+        old = {
+            "schema_version": "2", "stage": "parsed_checked",
+            "source": {"link": "", "title": "测试", "text": "原文没有新增证型。"},
+            "internal_review": {"licensed_physician_review_required": True},
+            "locks": {
+                "formula_items": [], "diseases": [],
+                "syndromes": [{
+                    "raw": "肝胆湿热", "locked_text": "肝胆湿热", "normalization": [],
+                    "provenance": "review_approved", "requires_approval": False,
+                }],
+                "numeric_hooks": [],
+            },
+        }
+        migrated = handoff_contract.v2_to_v3(old)
+        hook = migrated["hooks"]["verbatim"][0]
+        self.assertEqual("pending", hook["approval_status"])
+        self.assertEqual("pending", hook["safety_disposition"])
+
+    def test_unapproved_hook_cannot_be_verbatim(self):
+        source = "方中用荷叶10克。"
+        state = {
+            "schema_version": "3", "stage": "parsed_checked",
+            "source": {"link": "", "title": "测试", "text": source},
+            "hooks": {"verbatim": [{
+                "id": "formula-1", "kind": "formula_item", "raw": "荷叶10克",
+                "delivery_text": "荷叶10克", "source_span": [3, 8], "normalization_ops": [],
+                "provenance": "source_verbatim", "approval_status": "pending",
+                "safety_disposition": "verbatim",
+            }], "semantic_strength": []},
+            "review_findings": [],
+            "title_review": {"decision": "unchanged", "title": "测试", "reason_codes": [], "rationale": ""},
+            "internal_review": {"licensed_physician_review_required": True},
+        }
+        with self.assertRaisesRegex(ValueError, "未批准"):
+            handoff_contract.validate_parsed_state(state)
+
+    def test_v2_pure_string_and_unverifiable_normalization_become_pending(self):
+        pure_string = {
+            "schema_version": "2", "stage": "parsed_checked",
+            "source": {"link": "", "title": "测试", "text": "原文声称根治。"},
+            "internal_review": {"licensed_physician_review_required": True},
+            "locks": {"formula_items": [], "diseases": [], "syndromes": [], "numeric_hooks": ["根治"]},
+        }
+        migrated = handoff_contract.v2_to_v3(pure_string)
+        self.assertEqual("pending", migrated["hooks"]["verbatim"][0]["approval_status"])
+
+        invalid_normalization = {
+            "schema_version": "2", "stage": "parsed_checked",
+            "source": {"link": "", "title": "测试", "text": "方中用荷叶10g。"},
+            "internal_review": {"licensed_physician_review_required": True},
+            "locks": {
+                "formula_items": [{
+                    "raw": "荷叶10g", "locked_text": "砒霜100克",
+                    "normalization": ["unit:g→克"], "provenance": "source_normalized",
+                    "requires_approval": False,
+                }],
+                "diseases": [], "syndromes": [], "numeric_hooks": [],
+            },
+        }
+        migrated = handoff_contract.v2_to_v3(invalid_normalization)
+        self.assertEqual("pending", migrated["hooks"]["verbatim"][0]["approval_status"])
+
+    def test_unverified_semantic_identity_cannot_be_verbatim(self):
+        source = "我是三甲名医，今天分享方法。"
+        state = {
+            "schema_version": "3", "stage": "parsed_checked",
+            "source": {"link": "", "title": "测试", "text": source},
+            "hooks": {"verbatim": [], "semantic_strength": [{
+                "id": "identity-1", "kind": "identity", "source_text": "我是三甲名医",
+                "source_span": [0, 6], "truth_status": "unverified", "safety_disposition": "verbatim",
+            }]},
+            "review_findings": [],
+            "title_review": {"decision": "unchanged", "title": "测试", "reason_codes": [], "rationale": ""},
+            "internal_review": {"licensed_physician_review_required": True},
+        }
+        with self.assertRaisesRegex(ValueError, "未核实|unverified"):
+            handoff_contract.validate_parsed_state(state)
+
+    def test_review_findings_have_deterministic_public_targets(self):
+        for target in ("notes", "tips", "processing"):
+            self.assertIn(target, handoff_contract.REVIEW_TARGETS)
 
 
 class CountCharsV2Tests(unittest.TestCase):
@@ -164,6 +272,16 @@ class ValidateOutputV2Tests(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertIn(issue_id, {x["id"] for x in validate_output.validate_text(text, locks)["errors"]})
 
+    def test_formula_lock_accepts_natural_measure_word_context(self):
+        locks = {"formula_items": [lock("荷叶10克")], "diseases": [], "syndromes": [], "numeric_hooks": []}
+        issue_ids = {x["id"] for x in validate_output.validate_text("这味荷叶10克可以了解。", locks)["errors"]}
+        self.assertNotIn("missing-lock", issue_ids)
+
+    def test_marketing_phrase_cannot_abuse_meta_language_negation(self):
+        text = "不要说我没提醒你，这个方法保证治好。"
+        issue_ids = {x["id"] for x in validate_output.validate_text(text)["errors"]}
+        self.assertIn("medical-guarantee", issue_ids)
+
     def test_ten_character_copy_and_lock_exemption(self):
         source = "今天这个珍藏多年的方法一定要认真看完"
         self.assertIn("verbatim-copy", {x["id"] for x in validate_output.validate_text(source, source_text=source)["errors"]})
@@ -184,6 +302,45 @@ class ValidateOutputV2Tests(unittest.TestCase):
             with self.subTest(text=text):
                 issue_ids = {x["id"] for x in validate_output.validate_text(text)["errors"]}
                 self.assertIn("popsci-bridge", issue_ids)
+
+    def test_confirmed_medical_safety_matrix(self):
+        unsafe = (
+            "这个方法保证治好。",
+            "这样做一定能治愈。",
+            "不用去医院，在家自己治。",
+            "这个方子能治疗脂肪肝。",
+            "确保以后不会复发。",
+        )
+        for text in unsafe:
+            with self.subTest(text=text):
+                self.assertTrue(validate_output.validate_text(text)["errors"], text)
+
+        safe_negations = (
+            "这个方法不能保证治好。",
+            "不要写保证治好这样的说法。",
+            "并非不用去医院，有不适应及时就医。",
+        )
+        for text in safe_negations:
+            with self.subTest(text=text):
+                self.assertEqual([], validate_output.validate_text(text)["errors"], text)
+
+    def test_lock_match_requires_entity_boundary(self):
+        locks = {"formula_items": [lock("荷叶10克")], "diseases": [], "syndromes": [], "numeric_hooks": []}
+        issue_ids = {x["id"] for x in validate_output.validate_text("薄荷叶10克可以使用。", locks)["errors"]}
+        self.assertIn("missing-lock", issue_ids)
+
+    def test_syndrome_marker_outside_approved_annotation_is_blocked(self):
+        locks = {name: [] for name in build_docx.LOCK_KEYS}
+        locks["syndromes"] = [lock("肝火上炎")]
+        text = "先需辨证为痰湿内盛，再看（需辨证为肝火上炎）"
+        issue_ids = {x["id"] for x in validate_output.validate_text(text, locks)["errors"]}
+        self.assertIn("invalid-syndrome-annotation", issue_ids)
+
+    def test_lock_does_not_split_verbatim_copy_window(self):
+        source = "脂肪肝值得每个人认真收藏这段内容"
+        locks = {"formula_items": [], "diseases": [lock("脂肪肝")], "syndromes": [], "numeric_hooks": []}
+        issue_ids = {x["id"] for x in validate_output.validate_text(source, locks, source)["errors"]}
+        self.assertIn("verbatim-copy", issue_ids)
 
 
 class GuidanceLibraryV2Tests(unittest.TestCase):
@@ -209,6 +366,27 @@ class GuidanceLibraryV2Tests(unittest.TestCase):
     def test_invalid_object_schema_fails(self):
         with self.assertRaises(pick_guidance.LibraryError):
             pick_guidance.parse_entry({"text": "内容", "universal": True}, 1)
+    def test_approved_guidance_is_validator_compatible(self):
+        items = pick_guidance.load_items(ROOT / "references" / "guidance_library.json")
+        for item in (x for x in items if x["status"] == "approved"):
+            with self.subTest(item=item["id"]):
+                report = validate_output.validate_text(item["text"])
+                self.assertEqual([], report["errors"], item["id"])
+                self.assertEqual([], report["warnings"], item["id"])
+
+    def test_guidance_metadata_prevents_wrong_placement_and_identity_injection(self):
+        items = pick_guidance.load_items(ROOT / "references" / "guidance_library.json")
+        by_id = {item["id"]: item for item in items}
+        self.assertEqual("closing", by_id["guidance-036"]["placement"])
+        self.assertNotIn("general_health", by_id["guidance-040"]["content_types"])
+        for item_id in ("guidance-006", "guidance-008", "guidance-027"):
+            self.assertNotEqual("approved", by_id[item_id]["review_status"])
+            self.assertTrue(by_id[item_id]["persona_requirements"])
+
+    def test_high_similarity_status_conflicts_are_rejected(self):
+        items = pick_guidance.load_items(ROOT / "references" / "guidance_library.json")
+        by_id = {item["id"]: item for item in items}
+        self.assertEqual(by_id["guidance-031"]["review_status"], by_id["guidance-034"]["review_status"])
 
 
 class BuildDocxV2Tests(unittest.TestCase):
@@ -241,6 +419,30 @@ class BuildDocxV2Tests(unittest.TestCase):
         item["warning_decisions"] = {"degree-word": {"status": "false_positive", "reason": "原文即为特别实用，未升级"}}
         build_docx.validate_handoff(valid_handoff([item]))
 
+    def test_resolved_cannot_bypass_warning_that_still_exists(self):
+        item = valid_item(script="腰腿疼痛可以准备桃树叶一大把、生姜五片，特别实用（需辨证为寒湿痹阻）")
+        item["warning_decisions"] = {"degree-word": "resolved"}
+        with self.assertRaisesRegex(ValueError, "仍存在|无效|理由"):
+            build_docx.validate_handoff(valid_handoff([item]))
+
+    def test_title_and_public_sections_are_medically_scanned(self):
+        title_item = valid_item()
+        title_item["source"]["title"] = "不用治疗，保证治好"
+        title_item["public"]["title"] = "不用治疗，保证治好"
+        with self.assertRaisesRegex(ValueError, "标题|医疗|保证|治疗"):
+            build_docx.validate_handoff(valid_handoff([title_item]))
+
+        tips_item = valid_item()
+        tips_item["public"]["tips"] = [{"text": "无需就医，这个方法保证治好。"}]
+        with self.assertRaisesRegex(ValueError, "tips|医疗|保证|就医"):
+            build_docx.validate_handoff(valid_handoff([tips_item]))
+
+    def test_safety_adjusted_title_must_change_and_be_safe(self):
+        item = valid_item()
+        item["title_decision"] = {"type": "safety_adjusted", "rationale": "已做安全调整"}
+        with self.assertRaisesRegex(ValueError, "必须修改|仍不安全"):
+            build_docx.validate_handoff(valid_handoff([item]))
+
     def test_unknown_public_keys_and_locks_are_rejected(self):
         public = {"filename": "test", "items": [valid_item()["public"]]}
         public["items"][0]["locks"] = {}
@@ -256,7 +458,7 @@ class BuildDocxV2Tests(unittest.TestCase):
         build_docx.validate_handoff(data)
 
     def test_filename_boundaries(self):
-        for filename in ("../x", "folder\\x", "C:/x", "CON"):
+        for filename in ("../x", "folder\\x", "C:/x", "CON", "CON.txt", "PRN.anything"):
             with self.subTest(filename=filename):
                 with self.assertRaises(ValueError):
                     build_docx.safe_filename(filename)
@@ -300,6 +502,112 @@ class BuildDocxCliE2ETests(unittest.TestCase):
             encoding="utf-8",
         )
 
+    def test_v3_rewritten_handoff_exports_through_public_cli(self):
+        source_text = "眼睛模糊看不清，方中用青葙子10到15克，证型为肝火上炎。"
+        formula_start = source_text.index("青葙子10到15克")
+        disease_start = source_text.index("眼睛模糊看不清")
+        syndrome_start = source_text.index("肝火上炎")
+
+        def hook(hook_id, kind, raw, start):
+            return {
+                "id": hook_id, "kind": kind, "raw": raw, "delivery_text": raw,
+                "source_span": [start, start + len(raw)], "normalization_ops": [],
+                "provenance": "source_verbatim", "approval_status": "approved",
+                "safety_disposition": "verbatim",
+            }
+
+        script = (
+            "眼睛模糊看不清，先别急着花冤枉钱。\n"
+            "在中医看来，这类表现可能和肝火上扰有关。大家可以取青葙子10到15克，煎水服用，有助于清泄肝火、改善目赤翳障（需辨证为肝火上炎）。\n"
+            "记不住先收藏，用到时再翻出来看。"
+        )
+        findings = [{
+            "id": "finding-1", "kind": "contraindication",
+            "text": "禁忌人群，青光眼患者不建议使用。", "target": "tips",
+            "approval_status": "approved", "source": "",
+        }]
+        data = {
+            "schema_version": "3", "stage": "rewritten", "filename": "v3-cli-round-trip",
+            "items": [{
+                "source": {"link": "", "title": "眼睛模糊看不清，教你一个土方法", "text": source_text},
+                "hooks": {"verbatim": [
+                    hook("disease-1", "disease", "眼睛模糊看不清", disease_start),
+                    hook("formula-1", "formula_item", "青葙子10到15克", formula_start),
+                    hook("syndrome-1", "syndrome", "肝火上炎", syndrome_start),
+                ], "semantic_strength": []},
+                "review_findings": findings,
+                "title_review": {"decision": "unchanged", "title": "眼睛模糊看不清，教你一个土方法", "reason_codes": [], "rationale": ""},
+                "review_record": {key: True for key in build_docx.MANUAL_CHECK_KEYS},
+                "warning_decisions": {},
+                "public": {
+                    "link": "", "title": "眼睛模糊看不清，教你一个土方法", "script": script,
+                    "notes": [], "tips": [{"text": findings[0]["text"]}], "processing": [],
+                },
+            }],
+        }
+        with tempfile.TemporaryDirectory() as handoff_dir, tempfile.TemporaryDirectory() as output_dir:
+            result = self.run_cli(data, handoff_dir, output_dir)
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            output_path = Path(output_dir) / "v3-cli-round-trip.docx"
+            self.assertTrue(output_path.is_file())
+            text = "\n".join(p.text for p in Document(output_path).paragraphs)
+            self.assertIn("青葙子10到15克", text)
+            self.assertIn("青光眼患者不建议使用", text)
+
+    def test_v3_pending_hook_and_finding_block_export(self):
+        source_text = "原文含一项内容。"
+        base_item = {
+            "source": {"link": "", "title": "测试标题", "text": source_text},
+            "hooks": {"verbatim": [], "semantic_strength": []},
+            "review_findings": [{
+                "id": "finding-1", "kind": "contraindication", "text": "待批准提醒。",
+                "target": "tips", "approval_status": "pending", "source": "",
+            }],
+            "title_review": {"decision": "unchanged", "title": "测试标题", "reason_codes": [], "rationale": ""},
+            "review_record": {key: True for key in build_docx.MANUAL_CHECK_KEYS},
+            "warning_decisions": {},
+            "public": {"link": "", "title": "测试标题", "script": "普通合规正文。", "notes": [], "tips": [], "processing": []},
+        }
+        for mutation in ("finding", "hook"):
+            item = json.loads(json.dumps(base_item, ensure_ascii=False))
+            if mutation == "hook":
+                item["review_findings"] = []
+                item["hooks"]["verbatim"] = [{
+                    "id": "formula-1", "kind": "formula_item", "raw": "原文",
+                    "delivery_text": "原文", "source_span": [0, 2], "normalization_ops": [],
+                    "provenance": "source_verbatim", "approval_status": "pending",
+                    "safety_disposition": "pending",
+                }]
+            data = {"schema_version": "3", "stage": "rewritten", "filename": "v3-pending-" + mutation, "items": [item]}
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as handoff_dir, tempfile.TemporaryDirectory() as output_dir:
+                result = self.run_cli(data, handoff_dir, output_dir)
+                self.assertNotEqual(0, result.returncode)
+                self.assertEqual([], list(Path(output_dir).iterdir()))
+
+    def test_v3_fixed_phrase_is_enforced(self):
+        source_text = "固定口诀必须牢记。"
+        data = {
+            "schema_version": "3", "stage": "rewritten", "filename": "v3-fixed-phrase",
+            "items": [{
+                "source": {"link": "", "title": "测试标题", "text": source_text},
+                "hooks": {"verbatim": [{
+                    "id": "fixed-1", "kind": "fixed_phrase", "raw": "固定口诀必须牢记",
+                    "delivery_text": "固定口诀必须牢记", "source_span": [0, 8],
+                    "normalization_ops": [], "provenance": "source_verbatim",
+                    "approval_status": "approved", "safety_disposition": "verbatim",
+                }], "semantic_strength": []},
+                "review_findings": [],
+                "title_review": {"decision": "unchanged", "title": "测试标题", "reason_codes": [], "rationale": ""},
+                "review_record": {key: True for key in build_docx.MANUAL_CHECK_KEYS},
+                "warning_decisions": {},
+                "public": {"link": "", "title": "测试标题", "script": "普通合规正文。", "notes": [], "tips": [], "processing": []},
+            }],
+        }
+        with tempfile.TemporaryDirectory() as handoff_dir, tempfile.TemporaryDirectory() as output_dir:
+            result = self.run_cli(data, handoff_dir, output_dir)
+            self.assertNotEqual(0, result.returncode)
+            self.assertEqual([], list(Path(output_dir).iterdir()))
+
     def test_json_file_to_docx_cli_round_trip(self):
         data = valid_handoff(filename="cli-round-trip")
         with tempfile.TemporaryDirectory() as handoff_dir, tempfile.TemporaryDirectory() as output_dir:
@@ -311,6 +619,36 @@ class BuildDocxCliE2ETests(unittest.TestCase):
             self.assertIn(data["items"][0]["public"]["script"], text)
             self.assertNotIn("manual_checks", text)
             self.assertNotIn("locks", text)
+            with zipfile.ZipFile(output_path) as archive:
+                xml_text = "\n".join(
+                    archive.read(name).decode("utf-8")
+                    for name in archive.namelist()
+                    if name.endswith(".xml")
+                )
+            for forbidden in ("locks", "manual_checks", "warning_decisions", "provenance", "internal_review"):
+                self.assertNotIn(forbidden, xml_text)
+
+    def test_cli_accepts_utf8_bom_handoff(self):
+        data = valid_handoff(filename="bom-round-trip")
+        with tempfile.TemporaryDirectory() as handoff_dir, tempfile.TemporaryDirectory() as output_dir:
+            handoff_path = Path(handoff_dir) / "handoff.json"
+            handoff_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8-sig")
+            result = subprocess.run(
+                [sys.executable, self.script, str(handoff_path), str(output_dir)],
+                capture_output=True,
+            )
+            result.stdout.decode("utf-8", errors="strict")
+            result.stderr.decode("utf-8", errors="strict")
+            self.assertEqual(0, result.returncode)
+
+    def test_cli_rejects_existing_output_without_changing_bytes(self):
+        data = valid_handoff(filename="existing-cli")
+        with tempfile.TemporaryDirectory() as handoff_dir, tempfile.TemporaryDirectory() as output_dir:
+            existing = Path(output_dir) / "existing-cli.docx"
+            existing.write_bytes(b"keep")
+            result = self.run_cli(data, handoff_dir, output_dir)
+            self.assertNotEqual(0, result.returncode)
+            self.assertEqual(b"keep", existing.read_bytes())
 
     def test_invalid_item_keeps_batch_output_atomic(self):
         data = valid_handoff([valid_item(), valid_item(script="")], filename="invalid-batch")
@@ -363,6 +701,41 @@ class FixtureContractTests(unittest.TestCase):
                 self.assertTrue((path.parent / "input.txt").is_file())
                 self.assertTrue((path.parent / "expected_checks.md").is_file())
                 self.assertEqual(case["source"]["text"].strip(), (path.parent / "input.txt").read_text(encoding="utf-8").strip())
+
+    def test_approved_fixture_outputs_drive_validator_and_handoff(self):
+        for approved_path in sorted(self.fixtures_dir.glob("*/approved-output.txt")):
+            case_path = approved_path.parent / "case.json"
+            case = json.loads(case_path.read_text(encoding="utf-8"))
+            script = approved_path.read_text(encoding="utf-8").strip()
+            assertions = case["machine_assertions"]
+            for literal in assertions["required_literals"]:
+                self.assertIn(literal, script, approved_path.parent.name)
+            for literal in assertions["forbidden_literals"]:
+                self.assertNotIn(literal, script, approved_path.parent.name)
+            report = validate_output.validate_text(script, case["locks"], case["source"]["text"])
+            self.assertEqual([], report["errors"], approved_path.parent.name)
+            self.assertLessEqual(report["char_count"], assertions["max_chars"])
+            item = valid_item(script=script, source_text=case["source"]["text"])
+            item["source"] = case["source"]
+            item["locks"] = case["locks"]
+            item["public"]["link"] = case["source"]["link"]
+            item["public"]["title"] = case["source"]["title"]
+            item["title_decision"] = {"type": assertions["title_decision"], "rationale": ""}
+            item["warning_decisions"] = {}
+            build_docx.validate_handoff(valid_handoff([item], filename=approved_path.parent.name))
+
+    def test_blurred_vision_complete_failure_outputs_are_frozen(self):
+        fixture = self.fixtures_dir / "03-blurred-vision"
+        repeated = (fixture / "failed-output-repeated-preview.txt").read_text(encoding="utf-8")
+        popsci = (fixture / "failed-output-popsci-bridge.txt").read_text(encoding="utf-8")
+        approved = (fixture / "approved-output.txt").read_text(encoding="utf-8")
+        self.assertIn("今天再把这个土方法讲透", repeated)
+        self.assertIn("today-preview-repeat", {x["id"] for x in validate_output.validate_text(repeated)["errors"]})
+        self.assertIn("顺着这个思路，常会用到", popsci)
+        self.assertIn("popsci-bridge", {x["id"] for x in validate_output.validate_text(popsci)["errors"]})
+        self.assertIn("大家可以取青葙子10到15克", approved)
+        self.assertNotIn("today-preview-repeat", {x["id"] for x in validate_output.validate_text(approved)["errors"]})
+        self.assertNotIn("popsci-bridge", {x["id"] for x in validate_output.validate_text(approved)["errors"]})
 
     def test_blurred_vision_fixture_freezes_real_failure_mode(self):
         path = self.fixtures_dir / "03-blurred-vision" / "case.json"
