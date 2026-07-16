@@ -170,6 +170,21 @@ class ValidateOutputV2Tests(unittest.TestCase):
         locks = {"formula_items": [], "diseases": [], "syndromes": [], "numeric_hooks": [lock(source)]}
         self.assertNotIn("verbatim-copy", {x["id"] for x in validate_output.validate_text(source, locks, source)["errors"]})
 
+    def test_repeated_today_preview_is_blocked(self):
+        bad_text = "今天要说的方法很简单。今天跟大家分享的这招，很多人花钱都学不到。"
+        issue_ids = {x["id"] for x in validate_output.validate_text(bad_text)["errors"]}
+        self.assertIn("today-preview-repeat", issue_ids)
+
+    def test_single_today_preview_passes(self):
+        good_text = "今天要说的方法很简单，青葙子10到15克煎水服用，记不住先收藏。"
+        self.assertEqual([], validate_output.validate_text(good_text)["errors"])
+
+    def test_popsci_bridge_transitions_are_blocked(self):
+        for text in ("在中医看来和肝火有关，常会用到青葙子", "临床上常用这味药", "顺着这个思路，一般会用"):
+            with self.subTest(text=text):
+                issue_ids = {x["id"] for x in validate_output.validate_text(text)["errors"]}
+                self.assertIn("popsci-bridge", issue_ids)
+
 
 class GuidanceLibraryV2Tests(unittest.TestCase):
     def test_library_schema_and_status(self):

@@ -27,6 +27,7 @@ BRACKET_RE = re.compile(r"[【】]")
 SELF_NAME_RE = re.compile(r"(?:我是|这里是|本人是).{0,12}(?:医生|大夫|主任医师)")
 CHITCHAT = ("话说回来", "有意思的是")
 STREET_TONE = ("这招你赚了", "你算赶上了", "捡到宝", "占便宜", "赚到了")
+POPSCI_BRIDGE = ("常会用到", "临床上常用", "一般会用", "顺着这个思路")
 CURE_PROMISE = ("根治", "断根", "越喝越好", "越喝肝越好", "100%治好", "百分百治好", "包治", "药到病除")
 SELF_TREATMENT = ("小毛病自己就能调", "小毛病，咱不求人", "不用治疗", "不用看医生", "回去试一试")
 ATTACK_PEERS = ("药店就要干不下去", "药店都要干不下去", "卖高价暴利产品")
@@ -36,6 +37,7 @@ COND_ABSOLUTE_RE = re.compile(r"只要(?!.{0,20}就)")
 OUTCOME_GUARANTEE_RE = re.compile(r"(?:不让你|保证你|确保你|保证以后|确保以后).{0,12}(?:多花|花冤枉钱|跑医院|挨刀|遭罪|不用治疗|不用手术)")
 ABSOLUTE_CAUSATION_RE = re.compile(r"(?:的根子(?:就)?是(?!什么)|唯一(?:病因|原因)|全都(?:是|由).{0,16}(?:引起|导致))")
 DEGREE_UP = ("特别", "非常", "极其", "格外")
+_TODAY_PREVIEW_RE = re.compile(r"今天.{0,10}(?:说|讲|分享|告诉|介绍|聊|要说的|要讲的|要分享的)")
 _COPY_NORM_RE = re.compile(r"[^\w一-鿿]+", re.UNICODE)
 _SENTENCE_GAP_6 = r"[^。！？；\n]{0,6}"
 _SENTENCE_GAP_8 = r"[^。！？；\n]{0,8}"
@@ -239,6 +241,7 @@ def validate_text(text, locks=None, source_text=""):
     keyword_groups = (
         ("chitchat", CHITCHAT, "闲聊腔"),
         ("street-tone", STREET_TONE, "市井口气"),
+        ("popsci-bridge", POPSCI_BRIDGE, "科普腔过渡"),
         ("cure-promise", CURE_PROMISE, "疗效打包票"),
         ("self-treatment", SELF_TREATMENT, "自疗或弱化就医"),
         ("attack-peers", ATTACK_PEERS, "攻击同行"),
@@ -254,6 +257,14 @@ def validate_text(text, locks=None, source_text=""):
     for match in ABSOLUTE_CAUSATION_RE.finditer(text):
         errors.append(_issue("absolute-causation", "医学归因过于绝对「%s」" % match.group(0)))
     errors.extend(find_editorial_tone(text))
+
+    today_hits = _TODAY_PREVIEW_RE.findall(text or "")
+    if len(today_hits) > 1:
+        errors.append(_issue(
+            "today-preview-repeat",
+            "正文出现 %d 次「今天+讲/说/分享」类预告重复；每段只保留首次预告，后续直接进入内容"
+            % len(today_hits),
+        ))
 
     all_locked = []
     syndrome_locks = []
